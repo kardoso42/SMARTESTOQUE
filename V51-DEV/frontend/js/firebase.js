@@ -27,13 +27,30 @@ export async function salvarProdutoNuvem(produto, index = 0) {
 }
 
 export async function enviarCatalogoNuvem(produtos) {
-  const batch = writeBatch(db);
-  produtos.forEach((produto, index) => {
-    const id = idProduto(produto, index);
-    batch.set(doc(catalogoRef, id), { ...produto, id, atualizadoEm: Date.now() }, { merge: true });
-  });
-  await batch.commit();
-  return produtos.length;
+  if (!Array.isArray(produtos) || !produtos.length) return 0;
+
+  const TAMANHO_LOTE = 500;
+  let enviados = 0;
+
+  for (let inicio = 0; inicio < produtos.length; inicio += TAMANHO_LOTE) {
+    const lote = produtos.slice(inicio, inicio + TAMANHO_LOTE);
+    const batch = writeBatch(db);
+
+    lote.forEach((produto, indice) => {
+      const indiceGlobal = inicio + indice;
+      const id = idProduto(produto, indiceGlobal);
+      batch.set(
+        doc(catalogoRef, id),
+        { ...produto, id, atualizadoEm: Date.now() },
+        { merge: true }
+      );
+    });
+
+    await batch.commit();
+    enviados += lote.length;
+  }
+
+  return enviados;
 }
 
 export async function excluirProdutoNuvem(produto, index = 0) {

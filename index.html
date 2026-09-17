@@ -6,13 +6,50 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <meta http-equiv="refresh" content="0; url=/V51-DEV/frontend/index.html">
   <title>Smart Estoque V51 — DEV</title>
+  <style>
+    html,body{margin:0;padding:0;width:100%;height:100%;background:#f8fafc;font-family:Arial,sans-serif}
+    #status{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#475569;font-size:14px;padding:20px;text-align:center}
+  </style>
 </head>
 <body>
-  <p>Carregando Smart Estoque V51-DEV…</p>
+  <div id="status">Carregando Smart Estoque V51-DEV…</div>
   <script>
-    window.location.replace('/V51-DEV/frontend/index.html');
+    (async () => {
+      const RAW_URL = 'https://raw.githubusercontent.com/kardoso42/SMARTESTOQUE/7d51713b9c6035fbf0d33c19e87c1c32c8db8f41/index.html';
+      const status = document.getElementById('status');
+      try {
+        const response = await fetch(RAW_URL, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`Falha ao carregar a base V50.6 (${response.status})`);
+        let html = await response.text();
+
+        const oldConfig = /let firebaseConfig\s*=\s*\{[\s\S]*?apiKey:\s*["']AIzaSyCUqfEuvJNSKERsE-Cj1U3ysbJ6GB_4IGg["'][\s\S]*?appId:\s*["']1:969025703082:web:11d3fa2060886071edd4d3["'][\s\S]*?\};/;
+        const newConfig = `let firebaseConfig = {
+            apiKey: "AIzaSyAGwu-Gntk60VW6C9nrgZNrRNsuAwmiU4",
+            authDomain: "smart-estoque-v51.firebaseapp.com",
+            projectId: "smart-estoque-v51",
+            storageBucket: "smart-estoque-v51.firebasestorage.app",
+            messagingSenderId: "530974032242",
+            appId: "1:530974032242:web:eaec6133d1505a0e4d1deb"
+        };`;
+
+        if (!oldConfig.test(html)) {
+          throw new Error('Configuração Firebase da base V50.6 não localizada.');
+        }
+        html = html.replace(oldConfig, newConfig);
+        html = html.replace(/const appId = typeof __app_id !== 'undefined' \? __app_id : 'auditor-estoque-v32';/, "const appId = 'smart-estoque-v51';");
+        html = html.replace(/collection\(db,\s*'artifacts',\s*appId,\s*'public',\s*'data',\s*'catalogo'\)/g, "collection(db, 'catalogo')");
+        html = html.replace(/collection\(db,\s*'artifacts',\s*appId,\s*'public',\s*'data',\s*'contagens'\)/g, "collection(db, 'contagens')");
+        html = html.replace(/doc\(db,\s*'artifacts',\s*appId,\s*'public',\s*'data',\s*'catalogo',\s*docId\)/g, "doc(db, 'catalogo', docId)");
+
+        document.open();
+        document.write(html);
+        document.close();
+      } catch (error) {
+        console.error(error);
+        status.innerHTML = `<strong>Não foi possível carregar a V51-DEV.</strong><br><br>${String(error.message || error)}`;
+      }
+    })();
   </script>
 </body>
 </html>

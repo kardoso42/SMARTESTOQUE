@@ -1,0 +1,78 @@
+name: Integrar Firebase V51
+
+on:
+  push:
+    branches: [V51-DEV]
+
+permissions:
+  contents: write
+
+jobs:
+  integrar:
+    if: ${{ !contains(github.event.head_commit.message, '[firebase-v51]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout V51-DEV
+        uses: actions/checkout@v4
+
+      - name: Gerar app V51 a partir da base completa V50.6
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          from urllib.request import urlopen
+
+          source_url = 'https://raw.githubusercontent.com/kardoso42/SMARTESTOQUE/7d51713b9c6035fbf0d33c19e87c1c32c8db8f41/index.html'
+          html = urlopen(source_url, timeout=30).read().decode('utf-8')
+
+          old_api = 'AIzaSyCUqfEuvJNSKERsE-Cj1U3ysbJ6GB_4IGg'
+          old_app = '1:969025703082:web:11d3fa2060886071edd4d3'
+          pattern = re.compile(r'let firebaseConfig\s*=\s*\{[\s\S]*?apiKey:\s*["\']' + re.escape(old_api) + r'["\'][\s\S]*?appId:\s*["\']' + re.escape(old_app) + r'["\'][\s\S]*?\};')
+          new_config = '''let firebaseConfig = {
+              apiKey: "AIzaSyAGwu-Gntk60VWU6C9nrgZNrRNsuAwmiU4",
+              authDomain: "smart-estoque-v51.firebaseapp.com",
+              projectId: "smart-estoque-v51",
+              storageBucket: "smart-estoque-v51.firebasestorage.app",
+              messagingSenderId: "530974032242",
+              appId: "1:530974032242:web:eaec6133d1505a0e4d1deb"
+          };'''
+          html, n = pattern.subn(new_config, html, count=1)
+          if n != 1:
+              raise SystemExit('Falha: configuração Firebase V50.6 não localizada na base completa.')
+
+          html = html.replace("const appId = typeof __app_id !== 'undefined' ? __app_id : 'auditor-estoque-v32';", "const appId = 'smart-estoque-v51';")
+          html = re.sub(r"collection\(db,\s*'artifacts',\s*appId,\s*'public',\s*'data',\s*'catalogo'\)", "collection(db, 'catalogo')", html)
+          html = re.sub(r"collection\(db,\s*'artifacts',\s*appId,\s*'public',\s*'data',\s*'contagens'\)", "collection(db, 'contagens')", html)
+          html = re.sub(r"doc\(db,\s*'artifacts',\s*appId,\s*'public',\s*'data',\s*'catalogo',\s*docId\)", "doc(db, 'catalogo', docId)", html)
+          html = re.sub(r"doc\(db,\s*'artifacts',\s*appId,\s*'public',\s*'data',\s*'contagens',\s*([^)]*)\)", r"doc(db, 'contagens', \1)", html)
+          html = html.replace('<title>Smart Estoque V-50.5 - SaaS Secure</title>', '<title>Smart Estoque V51 — DEV</title>')
+          html = html.replace('V-50.5 - SaaS Secure', 'V51 — DEV')
+
+          Path('index.html').write_text(html, encoding='utf-8')
+
+      - name: Validar geração
+        shell: python
+        run: |
+          from pathlib import Path
+          s = Path('index.html').read_text(encoding='utf-8')
+          checks = {
+              'Firebase V51': 'smart-estoque-v51.firebaseapp.com' in s,
+              'Projeto V51': 'projectId: "smart-estoque-v51"' in s,
+              'Coleção catalogo V51': "collection(db, 'catalogo')" in s,
+              'Coleção contagens V51': "collection(db, 'contagens')" in s,
+              'Base antiga removida': 'auditor-estoque.firebaseapp.com' not in s,
+              'Wrapper removido': 'raw.githubusercontent.com/kardoso42/SMARTESTOQUE/7d51713b9c6035fbf0d33c19e87c1c32c8db8f41/index.html' not in s,
+          }
+          for k, v in checks.items():
+              print(('OK  ' if v else 'FAIL') + ' ' + k)
+          if not all(checks.values()):
+              raise SystemExit('Validação V51 falhou.')
+
+      - name: Commit da V51
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "V51: integrar Firebase isolado ao app completo [firebase-v51]"
+          git push origin HEAD:V51-DEV

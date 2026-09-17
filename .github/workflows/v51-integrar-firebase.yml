@@ -48,6 +48,58 @@ jobs:
           html = html.replace('<title>Smart Estoque V-50.5 - SaaS Secure</title>', '<title>Smart Estoque V51 — DEV</title>')
           html = html.replace('V-50.5 - SaaS Secure', 'V51 — DEV')
 
+          old_listener = '''            // CATÁLOGO EM TEMPO REAL: elimina a necessidade de "forçar atualização" em outros dispositivos.
+            if (catalogoSnapshotUnsub) catalogoSnapshotUnsub();
+            const colRefCatalogo = collection(db, 'catalogo');
+            catalogoSnapshotUnsub = onSnapshot(colRefCatalogo, (snapshot) => {
+                if (importandoCatalogo) return;
+                const novoCatalogo = [];
+                snapshot.forEach(docSnap => novoCatalogo.push({ id: docSnap.id, ...docSnap.data() }));
+                novoCatalogo.sort((a,b) => String(a.descricao || '').localeCompare(String(b.descricao || ''), 'pt-BR'));
+                const mudou = JSON.stringify(novoCatalogo) !== JSON.stringify(baseDados);
+                if (!mudou) return;
+                baseDados = novoCatalogo;
+                ultimoCatalogoSincronizado = Date.now();
+                salvarCatalogoLocal();
+                window.atualizarFiltrosDOM();
+                if (operadorAtual) window.render();
+            }, (error) => console.error('Erro no sincronismo do catálogo:', error));'''
+
+          new_listener = '''            // CATÁLOGO EM TEMPO REAL V51: mantém o operador sincronizado sem exigir "FORÇAR ATUALIZAÇÃO".
+            // Se o listener cair por uma falha transitória de rede, ele é recriado automaticamente.
+            let tentativaReconexaoCatalogo = 0;
+            function iniciarListenerCatalogo() {
+                if (catalogoSnapshotUnsub) {
+                    try { catalogoSnapshotUnsub(); } catch (_) {}
+                    catalogoSnapshotUnsub = null;
+                }
+                const colRefCatalogo = collection(db, 'catalogo');
+                catalogoSnapshotUnsub = onSnapshot(colRefCatalogo, (snapshot) => {
+                    tentativaReconexaoCatalogo = 0;
+                    if (importandoCatalogo) return;
+                    const novoCatalogo = [];
+                    snapshot.forEach(docSnap => novoCatalogo.push({ id: docSnap.id, ...docSnap.data() }));
+                    novoCatalogo.sort((a,b) => String(a.descricao || '').localeCompare(String(b.descricao || ''), 'pt-BR'));
+                    const mudou = JSON.stringify(novoCatalogo) !== JSON.stringify(baseDados);
+                    if (!mudou) return;
+                    baseDados = novoCatalogo;
+                    ultimoCatalogoSincronizado = Date.now();
+                    salvarCatalogoLocal();
+                    window.atualizarFiltrosDOM();
+                    if (operadorAtual) window.render();
+                    window.showToast(`Catálogo sincronizado: ${novoCatalogo.length.toLocaleString('pt-BR')} produtos.`, 'success');
+                }, (error) => {
+                    console.error('Erro no sincronismo do catálogo V51:', error);
+                    const espera = Math.min(15000, 2000 * Math.pow(2, tentativaReconexaoCatalogo++));
+                    setTimeout(iniciarListenerCatalogo, espera);
+                });
+            }
+            iniciarListenerCatalogo();'''
+
+          if old_listener not in html:
+              raise SystemExit('Falha: bloco de sincronização do catálogo não localizado na base.')
+          html = html.replace(old_listener, new_listener, 1)
+
           Path('index.html').write_text(html, encoding='utf-8')
 
       - name: Validar geração
@@ -62,6 +114,8 @@ jobs:
               'Coleção contagens V51': "collection(db, 'contagens')" in s,
               'Base antiga removida': 'auditor-estoque.firebaseapp.com' not in s,
               'Wrapper removido': 'raw.githubusercontent.com/kardoso42/SMARTESTOQUE/7d51713b9c6035fbf0d33c19e87c1c32c8db8f41/index.html' not in s,
+              'Reconexão catálogo': 'iniciarListenerCatalogo' in s,
+              'Retry automático': 'tentativaReconexaoCatalogo' in s,
           }
           for k, v in checks.items():
               print(('OK  ' if v else 'FAIL') + ' ' + k)
@@ -74,5 +128,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
           git diff --cached --quiet && exit 0
-          git commit -m "V51: integrar Firebase isolado ao app completo [firebase-v51]"
+          git commit -m "V51: reforçar sincronização em tempo real [firebase-v51]"
           git push origin HEAD:V51-DEV

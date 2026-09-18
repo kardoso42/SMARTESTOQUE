@@ -866,6 +866,37 @@
 
         const normalizarTexto = (valor, padrao = '') => String(valor ?? padrao).trim();
 
+        const escHtml = (valor) => String(valor ?? '')
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+
+        const hashEstavel = (texto) => {
+            let h = 2166136261;
+            const s = String(texto ?? '');
+            for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+            return (h >>> 0).toString(36);
+        };
+
+        const assinaturaCatalogo = (lista) => {
+            let h = 2166136261;
+            for (const item of lista) {
+                const s = [item.id,item.codigo,item.local,item.gtin,item.descricao,item.familia,item.sistema,item.cmc,item.unidade].map(v => String(v ?? '')).join('|');
+                for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+                h ^= 124; h = Math.imul(h, 16777619);
+            }
+            return (h >>> 0).toString(36) + ':' + lista.length;
+        };
+
+        const gerarIdCatalogoEstavel = (item, usados = new Set()) => {
+            const cod = String(item.codigo || '').trim().toUpperCase();
+            const loc = String(item.local || '').trim().toUpperCase();
+            const gtin = String(item.gtin || '').trim().toUpperCase();
+            const desc = String(item.descricao || '').trim().toUpperCase();
+            const base = cod && loc ? `SKU_${hashEstavel(cod + '|' + loc)}` : `PROD_${hashEstavel(loc + '|' + desc + '|' + gtin)}`;
+            if (!usados.has(base)) return base;
+            return `${base}_${hashEstavel(gtin + '|' + desc + '|' + String(item.unidade || 'UN'))}`;
+        };
+
         const normalizarGTIN = (valor) => {
             if (valor === null || valor === undefined || valor === '') return '';
             let s = String(valor).trim().replace(/[^0-9A-Za-z_-]/g, '');
@@ -975,7 +1006,7 @@
                 const novoCatalogo = [];
                 snapshot.forEach(docSnap => novoCatalogo.push({ id: docSnap.id, ...docSnap.data() }));
                 novoCatalogo.sort((a,b) => String(a.descricao || '').localeCompare(String(b.descricao || ''), 'pt-BR'));
-                const mudou = JSON.stringify(novoCatalogo) !== JSON.stringify(baseDados);
+                const mudou = assinaturaCatalogo(novoCatalogo) !== assinaturaCatalogo(baseDados);
                 if (!mudou) return;
                 baseDados = novoCatalogo;
                 ultimoCatalogoSincronizado = Date.now();
@@ -1090,8 +1121,8 @@
                 if (statusMain) { statusMain.innerText = `${baseDados.length} produtos prontos no seu telemóvel.`; statusMain.style.color = 'var(--green)'; }
                 if (alertaEl) alertaEl.style.display = 'none';
                 
-                document.getElementById('filtro-local-multi').innerHTML = Array.from(locs).sort().map((l, i) => `<div class="multi-select-item"><input type="checkbox" class="check-l" id="loc-${i}" value="${l}" checked><label for="loc-${i}">${l}</label></div>`).join('');
-                document.getElementById('filtro-family-multi').innerHTML = Array.from(fams).sort().map((f, i) => `<div class="multi-select-item"><input type="checkbox" class="check-f" id="fam-${i}" value="${f}" checked><label for="fam-${i}">${f}</label></div>`).join('');
+                document.getElementById('filtro-local-multi').innerHTML = Array.from(locs).sort().map((l, i) => `<div class="multi-select-item"><input type="checkbox" class="check-l" id="loc-${i}" value="${escHtml(l)}" checked><label for="loc-${i}">${escHtml(l)}</label></div>`).join('');
+                document.getElementById('filtro-family-multi').innerHTML = Array.from(fams).sort().map((f, i) => `<div class="multi-select-item"><input type="checkbox" class="check-f" id="fam-${i}" value="${escHtml(f)}" checked><label for="fam-${i}">${escHtml(f)}</label></div>`).join('');
             } else {
                 if (statusEl) { statusEl.innerText = "☁️ O Catálogo da Nuvem está vazio."; statusEl.style.color = 'var(--orange)'; }
                 if (statusMain) { statusMain.innerText = `O telemóvel não tem produtos. Prima 'Atualização'.`; statusMain.style.color = 'var(--red)'; }
@@ -1447,7 +1478,7 @@
                     d.className = 'item-res';
                     d.style.padding = '10px';
                     d.style.marginBottom = '0';
-                    d.innerHTML = `<strong>${i.descricao}</strong><small style="color:var(--gray); font-size:10px;">${i.local} | Cód: ${i.codigo}</small>`;
+                    d.innerHTML = `<strong>${escHtml(i.descricao)}</strong><small style="color:var(--gray); font-size:10px;">${escHtml(i.local)} | Cód: ${escHtml(i.codigo)}</small>`;
                     d.onclick = () => { window.selecionarAssociacao(i); };
                     res.appendChild(d);
                 });
@@ -1965,7 +1996,7 @@
                 fill.slice(0, 100).forEach(i => {
                     const d = document.createElement('div');
                     d.className = 'item-res';
-                    d.innerHTML = `<strong>${i.descricao}</strong><small style="color:var(--gray); font-size:11px; font-weight: 500;">${i.local} | No Sistema: <b>${i.sistema}</b></small>`;
+                    d.innerHTML = `<strong>${escHtml(i.descricao)}</strong><small style="color:var(--gray); font-size:11px; font-weight: 500;">${escHtml(i.local)} | No Sistema: <b>${escHtml(i.sistema)}</b></small>`;
                     d.onclick = () => { indexEdicao = -1; window.abrirModal(i, false); };
                     res.appendChild(d);
                 });
@@ -2070,22 +2101,22 @@
                         // atualiza os mesmos documentos e não cria duplicatas a cada importação.
                         const idsNovos = new Set();
                         const snapshotAntigo = await getDocs(colRef);
+                        const mapaIdExistente = new Map();
+                        snapshotAntigo.forEach(docSnap => {
+                            const antigo = docSnap.data() || {};
+                            const chave = `${String(antigo.codigo || '').trim().toUpperCase()}|${String(antigo.local || '').trim().toUpperCase()}`;
+                            if (chave !== '|') mapaIdExistente.set(chave, docSnap.id);
+                        });
+                        const idsUsados = new Set();
                         let batch = writeBatch(db);
                         let opCount = 0;
                         let total = 0;
 
-                        // Envio sequencial à prova de falhas (Bloqueia crashes no Firestore)
                         for (const item of temporarios) {
-                            const cleanCod = String(item.codigo || '').replace(/[^a-zA-Z0-9_-]/g, '');
-                            const cleanLoc = String(item.local || '').replace(/[^a-zA-Z0-9_-]/g, '');
-                            const linhaImportacao = Number.isInteger(item._linhaImportacao) ? item._linhaImportacao : total;
-                            let docId = `${cleanCod}_${cleanLoc}_${linhaImportacao}`;
-                            
-                            // Impede a sobreposição de produtos que não tenham código na planilha
-                            if (!cleanCod || docId.startsWith('_')) {
-                                docId = `PROD_${Date.now()}_${Math.floor(Math.random() * 100000)}_${linhaImportacao}`;
-                            }
-                            
+                            const chaveNatural = `${String(item.codigo || '').trim().toUpperCase()}|${String(item.local || '').trim().toUpperCase()}`;
+                            let docId = mapaIdExistente.get(chaveNatural) || gerarIdCatalogoEstavel(item, idsUsados);
+                            if (idsUsados.has(docId)) docId = gerarIdCatalogoEstavel({...item, gtin: item.gtin || ''}, idsUsados);
+                            idsUsados.add(docId);
                             idsNovos.add(docId);
                             item.id = docId;
                             delete item._linhaImportacao;

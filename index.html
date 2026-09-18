@@ -1298,7 +1298,7 @@
             if(logAcoes.length > 20) logAcoes.pop();
             const container = document.getElementById('log-container');
             if(container) {
-                container.innerHTML = logAcoes.map(l => `<div class="log-entry"><span class="log-time">${l.time}</span><span class="log-msg"><span class="log-operador">${l.op}:</span> ${l.msg}</span></div>`).join('');
+                container.innerHTML = logAcoes.map(l => `<div class="log-entry"><span class="log-time">${escHtml(l.time)}</span><span class="log-msg"><span class="log-operador">${escHtml(l.op)}:</span> ${escHtml(l.msg)}</span></span></div>`).join('');
             }
         }
 
@@ -1508,7 +1508,7 @@
             if (idxAnt !== -1) {
                 const itemContado = contagens[idxAnt];
                 alertDup.style.display = 'block';
-                alertDup.innerHTML = `⚠️ JÁ CONTADO POR <strong>${itemContado.operador || 'OUTRO OPERADOR'}</strong><br>Qtd Atual Lançada: <strong>${itemContado.fisico} ${itemContado.unidade || 'UN'}</strong>`;
+                alertDup.innerHTML = `⚠️ JÁ CONTADO POR <strong>${escHtml(itemContado.operador || "OUTRO OPERADOR")}</strong><br>Qtd Atual Lançada: <strong>${escHtml(itemContado.fisico)} ${escHtml(itemContado.unidade || "UN")}</strong>`;
                 document.getElementById('btn-salvar-normal').style.display = 'none';
                 document.getElementById('botoes-duplicado').style.display = 'flex';
             } else {
@@ -1570,7 +1570,7 @@
             if (idxAnt !== -1) {
                 const itemContado = contagens[idxAnt];
                 alertDup.style.display = 'block';
-                alertDup.innerHTML = `⚠️ JÁ CONTADO POR <strong>${itemContado.operador || 'OUTRO OPERADOR'}</strong><br>Qtd Atual Lançada: <strong>${itemContado.fisico} ${itemContado.unidade || 'UN'}</strong>`;
+                alertDup.innerHTML = `⚠️ JÁ CONTADO POR <strong>${escHtml(itemContado.operador || "OUTRO OPERADOR")}</strong><br>Qtd Atual Lançada: <strong>${escHtml(itemContado.fisico)} ${escHtml(itemContado.unidade || "UN")}</strong>`;
                 document.getElementById('btn-salvar-normal').style.display = 'none';
                 document.getElementById('botoes-duplicado').style.display = 'flex';
             } else {
@@ -2011,7 +2011,7 @@
                 const btnNovo = document.createElement('button');
                 btnNovo.className = 'btn-blue';
                 btnNovo.style.marginTop = '10px';
-                btnNovo.innerHTML = `➕ CADASTRAR NOVO: "${rawT}"`;
+                btnNovo.innerHTML = `➕ CADASTRAR NOVO: "${escHtml(rawT)}"`;
                 btnNovo.onclick = () => {
                     indexEdicao = -1;
                     const tTrim = rawT.trim();

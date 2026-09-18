@@ -1298,7 +1298,7 @@
             if(logAcoes.length > 20) logAcoes.pop();
             const container = document.getElementById('log-container');
             if(container) {
-                container.innerHTML = logAcoes.map(l => `<div class="log-entry"><span class="log-time">${escHtml(l.time)}</span><span class="log-msg"><span class="log-operador">${escHtml(l.op)}:</span> ${escHtml(l.msg)}</span></span></div>`).join('');
+                container.innerHTML = logAcoes.map(l => `<div class="log-entry"><span class="log-time">${escHtml(l.time)}</span><span class="log-msg"><span class="log-operador">${escHtml(l.op)}:</span> ${escHtml(l.msg)}</span></div>`).join('');
             }
         }
 

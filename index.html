@@ -1673,11 +1673,11 @@
                 
                 if (idx < 100) {
                     html += `<tr onclick="editarContagem(${idx})">
-                        <td style="text-align:left; font-size:11px;">${i.descricao || 'PRODUTO SEM NOME'}<br><small style="color:var(--gray); font-weight:normal;">${i.local}</small></td>
+                        <td style="text-align:left; font-size:11px;">${escHtml(i.descricao || "PRODUTO SEM NOME")}<br><small style="color:var(--gray); font-weight:normal;">${escHtml(i.local)}</small></td>
                         <td class="col-sist" style="display:${isCego?'none':'table-cell'}">${sistema}</td>
                         <td style="font-weight:800; color:var(--blue); font-size: 13px;">${fisico}</td>
                         <td class="col-sist" style="display:${isCego?'none':'table-cell'}; font-weight:700; color:${dif<0?'var(--red)':dif>0?'var(--green)':'inherit'};">${dif > 0 ? '+'+dif.toFixed(2) : dif.toFixed(2)}</td>
-                        <td class="col-sist" style="display:${isCego?'none':'table-cell'}">${i.operador || 'DESCONHECIDO'}</td>
+                        <td class="col-sist" style="display:${isCego?'none':'table-cell'}">${escHtml(i.operador || "DESCONHECIDO")}</td>
                     </tr>`;
                 }
             });
@@ -1735,7 +1735,7 @@
                         const dif = Number(i.dif) || 0; const impacto = dif * (Number(i.cmc_unitario) || 0); 
                         const fill = impacto > 0 ? 'color: var(--green)' : 'color: var(--red)'; 
                         return `<tr>
-                            <td style="text-align: left; font-size: 11px;">${(i.descricao || '').substring(0, 30)}...</td>
+                            <td style="text-align: left; font-size: 11px;">${escHtml((i.descricao || "").substring(0, 30))}...</td>
                             <td style="font-weight: 800; ${fill}">${dif > 0 ? '+' + dif.toFixed(2) : dif.toFixed(2)}</td>
                             <td style="font-weight: 800; ${fill}">R$ ${Math.abs(impacto).toLocaleString('pt-PT', {minimumFractionDigits: 2})}</td>
                         </tr>`; 
@@ -1757,7 +1757,7 @@
                     const maxQtd = topFamilias[0].qtd; 
                     chartContainer.innerHTML = topFamilias.map(f => { 
                         const widthPct = maxQtd > 0 ? (f.qtd / maxQtd) * 100 : 0; 
-                        return `<div class="chart-row"><div class="chart-label" title="${f.familia}">${f.familia}</div><div class="chart-bar-container"><div class="chart-bar" style="width: ${widthPct}%"></div></div><div class="chart-value">${f.qtd.toLocaleString('pt-PT', {maximumFractionDigits: 2})}</div></div>`; 
+                        return `<div class="chart-row"><div class="chart-label" title="${escHtml(f.familia)}">${escHtml(f.familia)}</div><div class="chart-bar-container"><div class="chart-bar" style="width: ${widthPct}%"></div></div><div class="chart-value">${f.qtd.toLocaleString('pt-PT', {maximumFractionDigits: 2})}</div></div>`; 
                     }).join(''); 
                 }
             }
@@ -1778,8 +1778,8 @@
                     } else {
                         const itemsToRender = pendentes.slice(0, 150);
                         let htmlPendentes = itemsToRender.map(i => `<tr>
-                                <td style="text-align: left; font-size: 11px; padding: 12px;">${(i.descricao || '').substring(0, 35)}...<br><small style="color:var(--gray); font-weight:normal;">Cód: ${i.codigo}</small></td>
-                                <td style="font-size: 11px; padding: 12px;">${i.local}</td>
+                                <td style="text-align: left; font-size: 11px; padding: 12px;">${escHtml((i.descricao || "").substring(0, 35))}...<br><small style="color:var(--gray); font-weight:normal;">Cód: ${escHtml(i.codigo)}</small></td>
+                                <td style="font-size: 11px; padding: 12px;">${escHtml(i.local)}</td>
                                 <td style="font-weight: 800; padding: 12px; color: var(--blue);">${i.sistema || 0}</td>
                             </tr>`).join('');
                         if (pendentes.length > 150) htmlPendentes += `<tr><td colspan="3" style="color:var(--gray); font-size: 11px; padding:16px; text-align:center;">Estão visíveis os primeiros 150 registos pendentes de um total de ${pendentes.length}.</td></tr>`;
@@ -1815,15 +1815,15 @@
 
                 if (listaVencidos.length === 0) vencidosBody.innerHTML = `<tr><td colspan="3" style="color:var(--green); font-weight:800; padding:20px; text-align:center;">Nenhum produto vencido registado! 🎉</td></tr>`;
                 else vencidosBody.innerHTML = listaVencidos.map(i => `<tr>
-                        <td style="text-align: left; font-size: 11px; padding: 12px;">${(i.descricao || '').substring(0, 30)}...<br><small style="color:var(--gray); font-weight:normal;">Qtd: <b>${i.fisico}</b> ${i.unidade || 'UN'}</small></td>
-                        <td style="font-size: 11px; padding: 12px; font-weight:700;">${i.lote || '-'}</td>
+                        <td style="text-align: left; font-size: 11px; padding: 12px;">${escHtml((i.descricao || "").substring(0, 30))}...<br><small style="color:var(--gray); font-weight:normal;">Qtd: <b>${i.fisico}</b> ${escHtml(i.unidade || "UN")}</small></td>
+                        <td style="font-size: 11px; padding: 12px; font-weight:700;">${escHtml(i.lote || "-")}</td>
                         <td style="font-weight: 800; padding: 12px; color: var(--red);">${i.dataFormatada}</td>
                     </tr>`).join('');
 
                 if (listaAVencer.length === 0) avencerBody.innerHTML = `<tr><td colspan="3" style="color:var(--green); font-weight:800; padding:20px; text-align:center;">Nenhum produto a vencer em 30 dias! 🎉</td></tr>`;
                 else avencerBody.innerHTML = listaAVencer.map(i => `<tr>
-                        <td style="text-align: left; font-size: 11px; padding: 12px;">${(i.descricao || '').substring(0, 30)}...<br><small style="color:var(--gray); font-weight:normal;">Qtd: <b>${i.fisico}</b> ${i.unidade || 'UN'}</small></td>
-                        <td style="font-size: 11px; padding: 12px; font-weight:700;">${i.lote || '-'}</td>
+                        <td style="text-align: left; font-size: 11px; padding: 12px;">${escHtml((i.descricao || "").substring(0, 30))}...<br><small style="color:var(--gray); font-weight:normal;">Qtd: <b>${i.fisico}</b> ${escHtml(i.unidade || "UN")}</small></td>
+                        <td style="font-size: 11px; padding: 12px; font-weight:700;">${escHtml(i.lote || "-")}</td>
                         <td style="padding: 12px; color: var(--orange);"><strong style="font-size: 12px;">${i.dataFormatada}</strong><br><small style="font-size: 9px; font-weight: 700;">(em ${i.diffDays} dias)</small></td>
                     </tr>`).join('');
             }

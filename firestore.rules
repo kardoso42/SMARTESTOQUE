@@ -1,0 +1,56 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function perfilExiste() {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/usuarios/$(request.auth.uid));
+    }
+
+    function isChefe() {
+      return perfilExiste() &&
+        get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.cargo == 'CHEFE';
+    }
+
+    match /usuarios/{uid} {
+      // O perfil define o papel de segurança e não pode ser alterado pelo cliente.
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update, delete: if false;
+    }
+
+    match /catalogo/{docId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isChefe();
+    }
+
+    match /contagens/{docId} {
+      allow read: if signedIn();
+
+      // Cada novo lançamento deve carregar o UID autenticado.
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid;
+
+      // Operador só pode editar a própria contagem. Chefia pode corrigir qualquer registro.
+      allow update: if isChefe()
+        || (
+          signedIn()
+          && resource.data.uid == request.auth.uid
+          && request.resource.data.uid == request.auth.uid
+        );
+
+      // Operador pode apagar apenas a própria contagem; operações de limpeza geral ficam para a chefia.
+      allow delete: if isChefe()
+        || (signedIn() && resource.data.uid == request.auth.uid);
+    }
+
+    // Qualquer coleção não declarada acima fica fechada por padrão.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -437,23 +437,21 @@
             
             <div class="input-group">
                 <label for="login-nome">Nome ou Matrícula</label>
-                <input type="text" id="login-nome" placeholder="Ex: João Silva ou 99182">
+                <input type="text" id="login-nome" placeholder="Ex: João Silva ou 99182" autocomplete="name">
             </div>
 
             <div class="input-group">
-                <label for="login-cargo">Função no Inventário</label>
-                <select id="login-cargo" onchange="toggleLoginPinField()">
-                    <option value="OPERADOR" selected>👤 Operador (Contagens)</option>
-                    <option value="CHEFE">🔑 Chefe de Setor (Gestão)</option>
-                </select>
+                <label for="login-email">E-mail de acesso</label>
+                <input type="email" id="login-email" placeholder="seu.email@empresa.com" autocomplete="username">
             </div>
 
-            <div class="input-group" id="login-pin-container" style="display: none;">
-                <label for="login-pin" style="color: var(--red);">Código PIN Seguro</label>
-                <input type="password" id="login-pin" inputmode="numeric" maxlength="8" placeholder="••••" style="letter-spacing: 6px; font-size: 20px; font-weight: 800; border: 2px solid rgba(239, 68, 68, 0.4); text-align: center;">
+            <div class="input-group">
+                <label for="login-password">Senha</label>
+                <input type="password" id="login-password" placeholder="Senha da conta Firebase" autocomplete="current-password">
             </div>
 
-            <button class="login-btn btn-blue" onclick="fazerLogin()">Entrar no Sistema</button>
+            <button class="login-btn btn-blue" onclick="fazerLogin()">🔐 Entrar com segurança</button>
+            <p style="font-size:11px;color:var(--gray);text-align:center;margin:14px 0 0;">O perfil e a função são definidos no Firebase. A tela não concede privilégios.</p>
         </div>
     </div>
 
@@ -816,8 +814,8 @@
     <!-- SCRIPT DA APLICAÇÃO (CÓDIGO ÚNICO E LIMPO) -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
-        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
-        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch, getDocs } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch, getDocs, getDoc } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
         const _HASH_V = "9f2b388c42a27b8761a20d4af0b23f2d01cebcba57f68c340b190f7a55280911";
 
@@ -898,7 +896,7 @@
             const rawOp = localStorage.getItem('op_enc');
             const rawCargo = localStorage.getItem('cargo_enc');
             if (rawOp) operadorAtual = CryptoJS.AES.decrypt(rawOp, _HASH_V).toString(CryptoJS.enc.Utf8) || "";
-            if (rawCargo) cargoAtual = CryptoJS.AES.decrypt(rawCargo, _HASH_V).toString(CryptoJS.enc.Utf8) || "OPERADOR";
+            cargoAtual = "OPERADOR";
         } catch(e) {}
 
         window.gatilhoDisparado = false;
@@ -921,25 +919,45 @@
             };
         };
 
-        const initAuth = async () => {
+        const carregarPerfilFirebase = async (u) => {
+            if (!u) return false;
             try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
+                const perfilSnap = await getDoc(doc(db, 'usuarios', u.uid));
+                if (!perfilSnap.exists()) {
+                    await signOut(auth);
+                    operadorAtual = ''; cargoAtual = 'OPERADOR';
+                    window.showToast('Conta autenticada, mas sem perfil autorizado no Firebase.', 'error');
+                    return false;
                 }
-            } catch(e) { window.showToast("Erro de Autenticação", "error"); }
+                const perfil = perfilSnap.data() || {};
+                const cargo = String(perfil.cargo || '').toUpperCase();
+                if (!['CHEFE','OPERADOR'].includes(cargo)) {
+                    await signOut(auth);
+                    operadorAtual = ''; cargoAtual = 'OPERADOR';
+                    window.showToast('Perfil Firebase inválido ou sem função definida.', 'error');
+                    return false;
+                }
+                cargoAtual = cargo;
+                const nomePendente = localStorage.getItem('op_name_pending') || '';
+                operadorAtual = String(perfil.nome || nomePendente || u.email || '').trim().toUpperCase();
+                localStorage.removeItem('op_name_pending');
+                localStorage.setItem('op_enc', CryptoJS.AES.encrypt(operadorAtual, _HASH_V).toString());
+                localStorage.setItem('cargo_enc', CryptoJS.AES.encrypt(cargoAtual, _HASH_V).toString());
+                return true;
+            } catch (e) {
+                console.error('Erro ao carregar perfil Firebase:', e);
+                await signOut(auth).catch(() => {});
+                operadorAtual = ''; cargoAtual = 'OPERADOR';
+                window.showToast('Não foi possível validar o perfil no Firebase.', 'error');
+                return false;
+            }
         };
-        initAuth();
 
-        onAuthStateChanged(auth, (u) => {
-            currentUser = u;
-            if (!currentUser) return;
-
-            // Recupera imediatamente o último catálogo local para o operador não ficar esperando a rede.
+        const iniciarSincronizacaoAutorizada = () => {
+            if (!currentUser || !operadorAtual) return;
             if (baseDados.length === 0 && carregarCatalogoLocal()) {
                 window.atualizarFiltrosDOM();
-                if (operadorAtual) window.render();
+                window.render();
             }
 
             const colRefContagens = collection(db, 'contagens');
@@ -950,7 +968,6 @@
                 if (operadorAtual) window.render();
             }, (error) => console.error('Erro no sincronismo das contagens:', error));
 
-            // CATÁLOGO EM TEMPO REAL: elimina a necessidade de "forçar atualização" em outros dispositivos.
             if (catalogoSnapshotUnsub) catalogoSnapshotUnsub();
             const colRefCatalogo = collection(db, 'catalogo');
             catalogoSnapshotUnsub = onSnapshot(colRefCatalogo, (snapshot) => {
@@ -966,39 +983,26 @@
                 window.atualizarFiltrosDOM();
                 if (operadorAtual) window.render();
             }, (error) => console.error('Erro no sincronismo do catálogo:', error));
+        };
+
+        onAuthStateChanged(auth, async (u) => {
+            currentUser = u;
+            if (!u) {
+                operadorAtual = ''; cargoAtual = 'OPERADOR';
+                if (catalogoSnapshotUnsub) { catalogoSnapshotUnsub(); catalogoSnapshotUnsub = null; }
+                window.checkLogin();
+                return;
+            }
+            const autorizado = await carregarPerfilFirebase(u);
+            if (!autorizado) return;
+            iniciarSincronizacaoAutorizada();
+            window.checkLogin();
         });
 
         const removerAcentos = (str) => {
             if (!str) return '';
             return String(str).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[<>]/g, "");
         };
-
-        window.toggleLoginPinField = function() {
-            const cargo = document.getElementById('login-cargo').value;
-            const pinContainer = document.getElementById('login-pin-container');
-            if (cargo === 'CHEFE') {
-                pinContainer.style.display = 'block';
-                document.getElementById('login-pin').focus();
-            } else {
-                pinContainer.style.display = 'none';
-                document.getElementById('login-pin').value = '';
-            }
-        }
-
-        window.alterarPinSeguranca = function() {
-            const pinAntigo = document.getElementById('pin-antigo').value;
-            const pinNovo = document.getElementById('pin-novo').value.trim();
-            const pinAtualSalvo = localStorage.getItem('smart_chefe_pin_enc') ? 
-                CryptoJS.AES.decrypt(localStorage.getItem('smart_chefe_pin_enc'), _HASH_V).toString(CryptoJS.enc.Utf8) : '1234';
-
-            if (pinAntigo !== pinAtualSalvo) return window.showToast("O PIN atual está incorreto!", "error");
-            if (pinNovo.length < 4) return window.showToast("O PIN deve conter pelo menos 4 dígitos!", "warning");
-
-            localStorage.setItem('smart_chefe_pin_enc', CryptoJS.AES.encrypt(pinNovo, _HASH_V).toString());
-            document.getElementById('pin-antigo').value = '';
-            document.getElementById('pin-novo').value = '';
-            window.showToast("PIN atualizado com sucesso!", "success");
-        }
 
         window.inserirSimbolo = function(simbolo) {
             const inputQtd = document.getElementById('m-qtd');
@@ -1206,42 +1210,42 @@
             }
         }
         
-        window.fazerLogin = function() {
+        window.fazerLogin = async function() {
             const nome = document.getElementById('login-nome').value.trim().toUpperCase();
-            const cargo = document.getElementById('login-cargo').value;
-            const pinDigitado = document.getElementById('login-pin').value;
-            
+            const email = document.getElementById('login-email').value.trim().toLowerCase();
+            const password = document.getElementById('login-password').value;
             if (!nome) return window.showToast('Digite o seu nome ou matrícula!', 'warning');
-            if (cargo === 'CHEFE') {
-                const pinSegurancaSalvo = localStorage.getItem('smart_chefe_pin_enc') ? CryptoJS.AES.decrypt(localStorage.getItem('smart_chefe_pin_enc'), _HASH_V).toString(CryptoJS.enc.Utf8) : '1234';
-                if (pinDigitado !== pinSegurancaSalvo) { window.playBeep('error'); return window.showToast('Código PIN de Acesso incorreto!', 'error'); }
-                cargoAtual = 'CHEFE';
-            } else {
-                cargoAtual = 'OPERADOR';
+            if (!email || !email.includes('@')) return window.showToast('Digite um e-mail de acesso válido.', 'warning');
+            if (!password) return window.showToast('Digite a senha da sua conta Firebase.', 'warning');
+            try {
+                window.showToast('A validar acesso no Firebase...', 'info');
+                localStorage.setItem('op_name_pending', nome);
+                await signInWithEmailAndPassword(auth, email, password);
+                document.getElementById('login-password').value = '';
+            } catch (e) {
+                localStorage.removeItem('op_name_pending');
+                console.error(e);
+                const msg = e?.code === 'auth/invalid-credential' || e?.code === 'auth/wrong-password' || e?.code === 'auth/user-not-found'
+                    ? 'E-mail ou senha inválidos.'
+                    : e?.code === 'auth/too-many-requests' ? 'Muitas tentativas. Aguarde alguns minutos.'
+                    : 'Não foi possível autenticar no Firebase.';
+                window.playBeep('error');
+                window.showToast(msg, 'error');
             }
-
-            operadorAtual = nome;
-            localStorage.setItem('op_enc', CryptoJS.AES.encrypt(operadorAtual, _HASH_V).toString());
-            localStorage.setItem('cargo_enc', CryptoJS.AES.encrypt(cargoAtual, _HASH_V).toString());
-            
-            document.getElementById('login-pin').value = ''; 
-            window.checkLogin(); 
-            window.showToast(`Sessão iniciada como ${operadorAtual}`, 'success');
         }
         
         window.fazerLogout = function() {
-            window.customConfirm("Deseja sair de forma segura da sessão atual?", () => {
+            window.customConfirm('Deseja sair de forma segura da sessão atual?', async () => {
+                try { await signOut(auth); } catch (e) { console.error(e); }
                 operadorAtual = '';
                 cargoAtual = 'OPERADOR';
                 localStorage.removeItem('op_enc');
                 localStorage.removeItem('cargo_enc');
+                localStorage.removeItem('op_name_pending');
                 document.getElementById('login-nome').value = '';
-                document.getElementById('login-pin').value = '';
-                if (carregarCatalogoLocal()) {
-            window.atualizarFiltrosDOM();
-        }
-        window.checkLogin();
-            }, "btn-red");
+                document.getElementById('login-password').value = '';
+                window.checkLogin();
+            }, 'btn-red');
         }
 
         window.toggleDarkMode = function() {
@@ -1592,7 +1596,7 @@
             const colRef = collection(db, 'contagens');
 
             const payload = {
-                codigo: itemAtual.codigo, descricao: itemAtual.descricao, local: itemAtual.local,
+                uid: currentUser.uid, codigo: itemAtual.codigo, descricao: itemAtual.descricao, local: itemAtual.local,
                 sistema: itemAtual.sistema || 0, unidade: itemAtual.unidade || 'UN', familia: itemAtual.familia || 'SEM FAMÍLIA',
                 cmc: itemAtual.cmc || 0, fisico: novaQtd, dif: novaQtd - (Number(itemAtual.sistema) || 0), 
                 cmc_unitario: itemAtual.cmc || 0, gtin: novoGtin, lote: document.getElementById('m-lote').value.toUpperCase(), 
@@ -1603,9 +1607,11 @@
             // ATUALIZAÇÃO NOVO GTIN NA MATRIZ CLOUD (Se aplicável)
             const baseIdx = baseDados.findIndex(b => b.codigo === itemAtual.codigo && b.local === itemAtual.local);
             if (baseIdx !== -1 && novoGtin !== '' && baseDados[baseIdx].gtin !== novoGtin) {
-                const docIdCat = `${codRaw}_${locRaw}`;
-                const refCatalogo = doc(db, 'artifacts', appId, 'public', 'data', 'catalogo', docIdCat);
-                setDoc(refCatalogo, { gtin: novoGtin }, { merge: true }).catch(e => console.error(e));
+                const docIdCat = baseDados[baseIdx].id;
+                if (docIdCat) {
+                    const refCatalogo = doc(db, 'catalogo', docIdCat);
+                    setDoc(refCatalogo, { gtin: novoGtin }, { merge: true }).catch(e => console.error(e));
+                }
             }
 
             window.fecharModal(); 
@@ -1888,7 +1894,7 @@
                                 if (cargoAtual !== 'CHEFE' && itemContado.operador !== operadorAtual) {
                                     window.playBeep('error'); return window.showToast("Violou a segurança: Este registo pertence a outro utilizador!", "error");
                                 }
-                                const payload = {...itemContado, fisico: itemContado.fisico + 1, dif: (itemContado.fisico + 1) - (Number(itemContado.sistema) || 0), data: new Date().toLocaleString('pt-PT'), timestamp: Date.now(), operador: operadorAtual};
+                                const payload = {...itemContado, uid: currentUser.uid, fisico: itemContado.fisico + 1, dif: (itemContado.fisico + 1) - (Number(itemContado.sistema) || 0), data: new Date().toLocaleString('pt-PT'), timestamp: Date.now(), operador: operadorAtual};
                                 await setDoc(doc(colRef, itemContado.id), payload);
                                 window.addLog(`+1 Auto: ${itemContado.descricao}`); window.showToast(`+1 ${itemContado.descricao}`, 'success');
                             } else {
@@ -1899,7 +1905,7 @@
                                 if (!cleanCod || docId.startsWith('_')) docId = `PROD_${Date.now()}_${Math.floor(Math.random()*100000)}`;
 
                                 const payload = {
-                                    codigo: novoItem.codigo, descricao: novoItem.descricao, local: novoItem.local, sistema: 0, unidade: novoItem.unidade,
+                                    uid: currentUser.uid, codigo: novoItem.codigo, descricao: novoItem.descricao, local: novoItem.local, sistema: 0, unidade: novoItem.unidade,
                                     fisico: 1, dif: 1, cmc_unitario: novoItem.cmc || 0, gtin: novoItem.gtin || '', lote: "", validade: "", 
                                     obs: "INSERÇÃO VIA MODO CONTÍNUO", operador: operadorAtual, data: new Date().toLocaleString('pt-PT'), timestamp: Date.now()
                                 };

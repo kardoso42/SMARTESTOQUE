@@ -1104,6 +1104,47 @@
             }
         };
 
+        // Persistência dos filtros de auditoria: cada utilizador mantém as suas seleções entre atualizações da página.
+        const FILTROS_AUDITORIA_PREFIX = 'v51_filtros_auditoria_';
+        const getChaveFiltrosAuditoria = () => {
+            const uid = currentUser?.uid || operadorAtual || 'anonimo';
+            return FILTROS_AUDITORIA_PREFIX + String(uid).replace(/[^a-zA-Z0-9_-]/g, '_');
+        };
+        const lerFiltrosAuditoria = () => {
+            try {
+                const bruto = localStorage.getItem(getChaveFiltrosAuditoria());
+                if (!bruto) return null;
+                const dados = JSON.parse(bruto);
+                if (!dados || !Array.isArray(dados.locais) || !Array.isArray(dados.familias)) return null;
+                return { locais: dados.locais.map(String), familias: dados.familias.map(String) };
+            } catch (e) { console.warn('Não foi possível ler os filtros persistidos:', e); return null; }
+        };
+        const salvarFiltrosAuditoria = () => {
+            try {
+                localStorage.setItem(getChaveFiltrosAuditoria(), JSON.stringify({
+                    locais: Array.from(document.querySelectorAll('.check-l:checked')).map(cb => cb.value),
+                    familias: Array.from(document.querySelectorAll('.check-f:checked')).map(cb => cb.value)
+                }));
+            } catch (e) { console.warn('Não foi possível guardar os filtros de auditoria:', e); }
+        };
+        const aplicarFiltrosPersistidos = () => {
+            const locaisDisponiveis = new Set(Array.from(document.querySelectorAll('.check-l')).map(cb => cb.value));
+            const familiasDisponiveis = new Set(Array.from(document.querySelectorAll('.check-f')).map(cb => cb.value));
+            const salvos = lerFiltrosAuditoria();
+            if (!salvos) return;
+            const locaisValidos = salvos.locais.filter(v => locaisDisponiveis.has(v));
+            const familiasValidas = salvos.familias.filter(v => familiasDisponiveis.has(v));
+            if (salvos.locais.length > 0) document.querySelectorAll('.check-l').forEach(cb => cb.checked = locaisValidos.length ? locaisValidos.includes(cb.value) : true);
+            if (salvos.familias.length > 0) document.querySelectorAll('.check-f').forEach(cb => cb.checked = familiasValidas.length ? familiasValidas.includes(cb.value) : true);
+        };
+        const vincularPersistenciaFiltros = () => {
+            document.querySelectorAll('.check-l, .check-f').forEach(cb => cb.addEventListener('change', () => {
+                salvarFiltrosAuditoria();
+                if (typeof window.renderResultadosCatalogo === 'function') window.renderResultadosCatalogo();
+                if (typeof window.render === 'function') window.render();
+            }));
+        };
+
         window.atualizarFiltrosDOM = function() {
             let locs = new Set();
             let fams = new Set();
@@ -1123,6 +1164,8 @@
                 
                 document.getElementById('filtro-local-multi').innerHTML = Array.from(locs).sort().map((l, i) => `<div class="multi-select-item"><input type="checkbox" class="check-l" id="loc-${i}" value="${escHtml(l)}" checked><label for="loc-${i}">${escHtml(l)}</label></div>`).join('');
                 document.getElementById('filtro-family-multi').innerHTML = Array.from(fams).sort().map((f, i) => `<div class="multi-select-item"><input type="checkbox" class="check-f" id="fam-${i}" value="${escHtml(f)}" checked><label for="fam-${i}">${escHtml(f)}</label></div>`).join('');
+                aplicarFiltrosPersistidos();
+                vincularPersistenciaFiltros();
             } else {
                 if (statusEl) { statusEl.innerText = "☁️ O Catálogo da Nuvem está vazio."; statusEl.style.color = 'var(--orange)'; }
                 if (statusMain) { statusMain.innerText = `O telemóvel não tem produtos. Prima 'Atualização'.`; statusMain.style.color = 'var(--red)'; }

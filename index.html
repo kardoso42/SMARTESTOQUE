@@ -1229,6 +1229,8 @@
 
         window.checkLogin = function() {
             if (operadorAtual) {
+                // Aguarda o Firebase concluir a restauração da sessão antes de acessar a nuvem.
+                if (!currentUser) return;
                 const elLogin = document.getElementById('view-login');
                 const elApp = document.getElementById('view-app');
                 if (elLogin) elLogin.style.display = 'none';

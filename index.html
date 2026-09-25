@@ -1134,8 +1134,8 @@
             if (!salvos) return;
             const locaisValidos = salvos.locais.filter(v => locaisDisponiveis.has(v));
             const familiasValidas = salvos.familias.filter(v => familiasDisponiveis.has(v));
-            if (salvos.locais.length > 0) document.querySelectorAll('.check-l').forEach(cb => cb.checked = locaisValidos.length ? locaisValidos.includes(cb.value) : true);
-            if (salvos.familias.length > 0) document.querySelectorAll('.check-f').forEach(cb => cb.checked = familiasValidas.length ? familiasValidas.includes(cb.value) : true);
+            document.querySelectorAll('.check-l').forEach(cb => cb.checked = salvos.locais.length === 0 ? false : (locaisValidos.length ? locaisValidos.includes(cb.value) : true));
+            document.querySelectorAll('.check-f').forEach(cb => cb.checked = salvos.familias.length === 0 ? false : (familiasValidas.length ? familiasValidas.includes(cb.value) : true));
         };
         const vincularPersistenciaFiltros = () => {
             document.querySelectorAll('.check-l, .check-f').forEach(cb => cb.addEventListener('change', () => {

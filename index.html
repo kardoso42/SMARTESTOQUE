@@ -779,7 +779,7 @@
 
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top: 16px;">
                 <div><label style="font-size:11px; font-weight:600;">Lote:</label><input type="text" id="m-lote" style="padding: 12px; font-size: 13px;"></div>
-                <div><label style="font-size:11px; font-weight:600;">Validade:</label><input type="date" id="m-validade" style="padding: 12px; font-size: 13px;"></div>
+                <div><label style="font-size:11px; font-weight:600;">Validade:</label><input type="date" id="m-validade" onchange="atualizarBotaoEtiquetaVencido()" style="padding: 12px; font-size: 13px;"></div>
             </div>
             <div id="m-venc-alerta-red" style="display:none; font-size:11px; font-weight:800; color:var(--red); margin-top:8px; text-align: center;">⚠️ PRODUTO VENCIDO!</div>
             <div id="m-venc-alerta-orange" style="display:none; font-size:11px; font-weight:800; color:var(--orange); margin-top:8px; text-align: center;">⚠️ VENCE EM BREVE (30 DIAS)</div>
@@ -790,6 +790,7 @@
             </div>
             
             <div style="margin-top:28px;">
+                <button id="btn-etiqueta-vencido" type="button" class="btn-red" style="display:none; margin-bottom:12px; background:var(--red);" onclick="imprimirEtiquetaVencido()">🏷️ IMPRIMIR ETIQUETA DE PRODUTO VENCIDO</button>
                 <button id="btn-salvar-normal" type="button" class="btn-green" onclick="salvarFinal('substituir')">☁️ GUARDAR NA NUVEM</button>
                 <div id="botoes-duplicado" style="display:none; gap:12px;"><button type="button" class="btn-blue" onclick="salvarFinal('somar')">➕ SOMAR QTD</button><button type="button" class="btn-orange" onclick="salvarFinal('substituir')">🔄 SUBSTITUIR</button></div>
                 <button id="btn-excluir-item" type="button" class="btn-outline" style="display:none; margin-top:12px; color: var(--red); border-color: rgba(239,68,68,0.2);" onclick="excluirContagemEspecifica()">🗑️ ELIMINAR REGISTO</button>
@@ -1632,10 +1633,67 @@
             } else { 
                 document.getElementById('btn-excluir-item').style.display = 'block'; 
             }
-            document.getElementById('modal').style.display = "flex"; setTimeout(() => document.getElementById('m-qtd').focus(), 300);
+            document.getElementById('modal').style.display = "flex"; atualizarBotaoEtiquetaVencido(); setTimeout(() => document.getElementById('m-qtd').focus(), 300);
         }
 
-        window.salvarFinal = function(modo) {
+        window.atualizarBotaoEtiquetaVencido = function() {
+    const btn = document.getElementById('btn-etiqueta-vencido');
+    const validade = document.getElementById('m-validade')?.value || '';
+    if (!btn) return;
+    btn.style.display = validade && dataValidadeJaVencida(validade) ? 'block' : 'none';
+};
+const dataValidadeJaVencida = function(valor) {
+    if (!valor) return false;
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const validade = new Date(valor + 'T00:00:00');
+    return Number.isFinite(validade.getTime()) && validade < hoje;
+};
+const escaparHtmlEtiqueta = function(valor) {
+    return String(valor ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+};
+const CODE128B_PATTERNS = ["212222","222122","222221","121223","121322","131222","122213","122312","132212","221213","221312","231212","112232","122132","122231","113222","123122","123221","223211","221132","221231","213212","223112","312131","311222","321122","321221","312212","322112","322211","212123","212321","232121","111323","131123","131321","112313","132113","132311","211313","231113","231311","112133","112331","132131","113123","113321","133121","313121","211331","231131","213113","213311","213131","311123","311321","331121","312113","312311","332111","314111","221411","431111","111224","111422","121124","121421","141122","141221","112214","112412","122114","122411","142112","142211","241211","221114","413111","241112","134111","111242","121142","121241","114212","124112","124211","411212","421112","421211","212141","214121","412121","111143","111341","131141","114113","114311","411113","411311","113141","114131","311141","411131","211412","211214","211232","2331112"];
+const gerarSvgCode128 = function(texto) {
+    const valor = String(texto || '');
+    if (!valor) return '';
+    for (const ch of valor) { const code = ch.charCodeAt(0); if (code < 32 || code > 127) return ''; }
+    const valores = Array.from(valor).map(ch => ch.charCodeAt(0) - 32);
+    let checksum = 104; valores.forEach((v,i) => checksum += v * (i + 1)); checksum %= 103;
+    const seq = [104, ...valores, checksum, 106], quiet = 10, module = 2, height = 72;
+    const modules = seq.reduce((total, idx) => total + Array.from(CODE128B_PATTERNS[idx]).reduce((a,n) => a + Number(n), 0), 0);
+    const width = (modules + quiet * 2) * module;
+    let x = quiet * module, bars = '';
+    for (const idx of seq) {
+        const pattern = CODE128B_PATTERNS[idx];
+        for (let i=0;i<pattern.length;i++) {
+            const w = Number(pattern[i]) * module;
+            if (i % 2 === 0) bars += '<rect x="' + x + '" y="0" width="' + w + '" height="' + height + '" />';
+            x += w;
+        }
+    }
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="none">' + bars + '</svg>';
+};
+window.imprimirEtiquetaVencido = function() {
+    const validade = document.getElementById('m-validade')?.value || '';
+    if (!dataValidadeJaVencida(validade)) return window.showToast("A etiqueta só pode ser impressa para uma validade já vencida.", "warning");
+    const produto = document.getElementById('m-nome-edit')?.value?.trim() || itemAtual?.descricao || '';
+    const codigo = String(itemAtual?.codigo || '').trim();
+    const gtin = String(document.getElementById('m-gtin-edit')?.value || itemAtual?.gtin || '').trim();
+    const lote = document.getElementById('m-lote')?.value?.trim() || '';
+    const qtd = document.getElementById('m-qtd')?.value?.trim() || '';
+    const unidade = document.getElementById('m-un-edit')?.value?.trim() || itemAtual?.unidade || 'UN';
+    const fonteCodigo = gtin || codigo;
+    if (!fonteCodigo) return window.showToast("Produto sem GTIN e sem SKU: não é possível gerar o código de barras.", "error");
+    const svg = gerarSvgCode128(fonteCodigo);
+    if (!svg) return window.showToast("O código do produto contém caracteres inválidos para o código de barras.", "error");
+    const partes = validade.split('-'), validadeBR = partes.length===3 ? partes[2]+'/'+partes[1]+'/'+partes[0] : validade;
+    const win = window.open('', '_blank', 'width=700,height=1000');
+    if (!win) return window.showToast("O navegador bloqueou a janela de impressão. Permita pop-ups para o Smart Estoque.", "warning");
+    const H = v => escaparHtmlEtiqueta(v);
+    win.document.write('<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Etiqueta - Produto Vencido</title><style>@page{size:100mm 150mm;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;font-family:Arial,Helvetica,sans-serif}.etiqueta{width:100mm;height:150mm;border:1.5mm solid #d71920;display:flex;flex-direction:column;overflow:hidden}.cabecalho{background:#d71920;color:#fff;text-align:center;padding:5mm 4mm 4mm}.titulo{font-size:6mm;font-weight:900}.subtitulo{font-size:3.2mm;font-weight:800;margin-top:1.5mm}.conteudo{padding:5mm;flex:1}.campo{margin-bottom:3.5mm}.rotulo{font-size:3mm;font-weight:900;margin-bottom:1mm}.valor{min-height:7mm;border-bottom:.4mm solid #222;font-size:3.8mm;font-weight:700;padding:1mm 0;word-break:break-word}.linha{display:grid;grid-template-columns:1fr 1fr;gap:4mm}.alerta{border:.8mm solid #d71920;color:#d71920;font-weight:900;text-align:center;padding:3mm 2mm;font-size:3.4mm;margin:2mm 0 4mm}.barcode{border-top:.4mm solid #d71920;padding-top:3mm;text-align:center}.barcode svg{width:100%;height:19mm;display:block}.numero{font-size:2.8mm;font-weight:700;letter-spacing:.45mm;margin-top:1mm}.rodape{border-top:.8mm solid #d71920;color:#d71920;font-size:2.9mm;font-weight:800;text-align:center;padding:3mm 4mm}@media print{.etiqueta{margin:0}}</style></head><body><div class="etiqueta"><div class="cabecalho"><div class="titulo">⚠ PRODUTO VENCIDO</div><div class="subtitulo">AGUARDANDO TROCA E RETIRADA DO FORNECEDOR</div></div><div class="conteudo"><div class="campo"><div class="rotulo">PRODUTO</div><div class="valor">'+H(produto)+'</div></div><div class="campo"><div class="rotulo">CÓDIGO / SKU</div><div class="valor">'+H(codigo)+'</div></div><div class="linha"><div class="campo"><div class="rotulo">LOTE</div><div class="valor">'+H(lote||'—')+'</div></div><div class="campo"><div class="rotulo">QUANTIDADE</div><div class="valor">'+H(qtd ? qtd+' '+unidade : '—')+'</div></div></div><div class="campo"><div class="rotulo">VALIDADE</div><div class="valor">'+H(validadeBR)+'</div></div><div class="alerta">⛔ NÃO UTILIZAR / NÃO DISPONIBILIZAR PARA VENDA</div><div class="barcode">'+svg+'<div class="numero">'+H(fonteCodigo)+'</div></div></div><div class="rodape">PRODUTO SEGREGADO — AGUARDAR TROCA E RETIRADA DO FORNECEDOR</div></div><script>window.onload=function(){window.focus();window.print();setTimeout(function(){window.close()},700)}<\/script></body></html>');
+    win.document.close();
+};
+
+window.salvarFinal = function(modo) {
             if (!currentUser) return window.showToast("Ligação à nuvem inativa.", "error");
             window.esteCalculo(document.getElementById('m-qtd')); 
             const qVal = document.getElementById('m-qtd').value; 

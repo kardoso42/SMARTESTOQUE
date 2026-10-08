@@ -1804,7 +1804,7 @@ window.renderListaEtiquetasVencidas = function() {
     const limite = 500;
     const visiveis = produtos.slice(0, limite);
     tbody.innerHTML = visiveis.map((item, idx) => {
-        const key = String(item.id || (item.codigo + '|' + item.local + '|' + idx));
+        const key = String(item.id || ('ETQ|' + item.codigo + '|' + item.local + '|' + item.gtin + '|' + item.descricao));
         const checked = etiquetasSelecionadas.has(key) ? 'checked' : '';
         return '<tr data-etiqueta-row="'+escHtml(key)+'">' +
             '<td><input type="checkbox" '+checked+' onchange="alternarEtiquetaSelecionada(this)" data-key="'+escHtml(key)+'" style="width:18px;height:18px;"></td>' +
@@ -1821,7 +1821,7 @@ window.filtrarListaEtiquetas = function() { renderListaEtiquetasVencidas(); };
 
 window.alternarEtiquetaSelecionada = function(input) {
     const key = input.dataset.key;
-    const item = (baseDados || []).find((x, idx) => String(x.id || (x.codigo + '|' + x.local + '|' + idx)) === key);
+    const item = (baseDados || []).find((x, idx) => String(x.id || ('ETQ|' + x.codigo + '|' + x.local + '|' + x.gtin + '|' + x.descricao)) === key);
     if (!item) return;
     if (input.checked) etiquetasSelecionadas.set(key, dadosProdutoEtiqueta(item));
     else etiquetasSelecionadas.delete(key);
@@ -1841,7 +1841,7 @@ window.selecionarTodosEtiquetasVisiveis = function() {
         if (!input.checked) {
             input.checked = true;
             const key = input.dataset.key;
-            const item = (baseDados || []).find((x, idx) => String(x.id || (x.codigo + '|' + x.local + '|' + idx)) === key);
+            const item = (baseDados || []).find((x, idx) => String(x.id || ('ETQ|' + x.codigo + '|' + x.local + '|' + x.gtin + '|' + x.descricao)) === key);
             if (item) etiquetasSelecionadas.set(key, dadosProdutoEtiqueta(item));
         }
     });

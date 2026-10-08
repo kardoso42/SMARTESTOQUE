@@ -494,6 +494,7 @@
         <div class="tabs print-hide">
             <button class="tab-btn active" id="tab-auditoria" onclick="mudarAba('auditoria')">🔍 Auditoria</button>
             <button class="tab-btn" id="tab-relatorios" onclick="mudarAba('relatorios')" style="display: none;">📊 Relatórios</button>
+            <button class="tab-btn" id="tab-etiquetas" onclick="mudarAba('etiquetas')" style="display: none;">🏷️ Etiquetas</button>
         </div>
 
         <!-- ECRÃ DE AUDITORIA -->
@@ -626,7 +627,25 @@
                 </div>
             </div>
 
-            <div class="card print-hide" id="card-etiquetas-vencidos">
+            <div class="print-only signature-block">
+                <div class="signature-line">Assinatura do Auditor</div>
+                <div class="signature-line">Visto da Gestão</div>
+            </div>
+
+            <button id="chefe-pdf-btn" class="btn-outline print-hide" onclick="imprimirPDF()" style="margin-top: 10px; display:none;">🖨️ IMPRIMIR RELATÓRIO OFICIAL</button>
+        </div>
+        
+        <!-- Botão Flutuante de Log -->
+        <button id="btn-floating-log" class="print-hide" onclick="abrirModalLog()" title="Ver Histórico">🕒</button>
+
+    </div>
+
+    <div id="view-etiquetas" style="display:none;">
+    <div style="margin-bottom:14px;">
+        <h2 style="margin:0 0 6px; font-size:20px; color:var(--blue-dark);">🏷️ Gestão de Etiquetas</h2>
+        <p style="margin:0; font-size:12px; color:var(--gray);">Selecione os produtos vencidos ou que aguardam troca e retirada do fornecedor. Esta área fica separada dos relatórios para receber melhorias futuras.</p>
+    </div>
+    <div class="card print-hide" id="card-etiquetas-vencidos">
     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:12px; gap:10px; flex-wrap:wrap;">
         <div>
             <h3 style="margin:0; font-size:15px; color:var(--blue-dark);">🏷️ Etiquetas de Produtos Vencidos</h3>
@@ -650,20 +669,9 @@
         </table>
     </div>
 </div>
-<div class="print-only signature-block">
-                <div class="signature-line">Assinatura do Auditor</div>
-                <div class="signature-line">Visto da Gestão</div>
-            </div>
 
-            <button id="chefe-pdf-btn" class="btn-outline print-hide" onclick="imprimirPDF()" style="margin-top: 10px; display:none;">🖨️ IMPRIMIR RELATÓRIO OFICIAL</button>
-        </div>
-        
-        <!-- Botão Flutuante de Log -->
-        <button id="btn-floating-log" class="print-hide" onclick="abrirModalLog()" title="Ver Histórico">🕒</button>
-
-    </div>
-
-    <div id="modal-etiquetas-vencidas" class="modal" style="z-index:10010;">
+</div>
+<div id="modal-etiquetas-vencidas" class="modal" style="z-index:10010;">
     <div class="modal-content" style="max-width:760px;">
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:14px; margin-bottom:14px;">
             <div>
@@ -1919,12 +1927,15 @@ window.imprimirEtiquetasSelecionadas = function() {
     win.document.close();
 };
 window.mudarAba = function(aba) {
-            if (aba === 'relatorios' && cargoAtual !== 'CHEFE') return window.showToast("Área restrita à Gestão!", "error");
+            if ((aba === 'relatorios' || aba === 'etiquetas') && cargoAtual !== 'CHEFE') return window.showToast("Área restrita à Gestão!", "error");
             document.getElementById('view-auditoria').style.display = aba === 'auditoria' ? 'block' : 'none';
             document.getElementById('view-relatorios').style.display = aba === 'relatorios' ? 'block' : 'none';
+            document.getElementById('view-etiquetas').style.display = aba === 'etiquetas' ? 'block' : 'none';
             document.getElementById('tab-auditoria').className = aba === 'auditoria' ? 'tab-btn active' : 'tab-btn';
             document.getElementById('tab-relatorios').className = aba === 'relatorios' ? 'tab-btn active' : 'tab-btn';
-            if (aba === 'relatorios') { window.atualizarRelatorios(); window.renderListaEtiquetasVencidas(); }
+            document.getElementById('tab-etiquetas').className = aba === 'etiquetas' ? 'tab-btn active' : 'tab-btn';
+            if (aba === 'relatorios') window.atualizarRelatorios();
+            if (aba === 'etiquetas') window.renderListaEtiquetasVencidas();
         }
 
         window.atualizarRelatorios = function() {

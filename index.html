@@ -1078,6 +1078,7 @@
                 const mudou = assinaturaCatalogo(novoCatalogo) !== assinaturaCatalogo(baseDados);
                 if (!mudou) return;
                 baseDados = novoCatalogo;
+                if (cargoAtual === 'CHEFE') atualizarCustosFichasAposImportacao();
                 ultimoCatalogoSincronizado = Date.now();
                 salvarCatalogoLocal();
                 window.atualizarFiltrosDOM();
@@ -1993,6 +1994,20 @@ window.salvarFT=async function(){if(!podeEditarFT())return window.showToast('Sem
 window.editarFT= function(id){if(!podeEditarFT())return;const f=fichasCacheFT.find(x=>x.id===id);if(!f)return;fichaEditandoFT=id;document.getElementById('ft-nome').value=f.nome||'';document.getElementById('ft-cat').value=f.categoria||'';document.getElementById('ft-rend').value=f.rendimento||'';document.getElementById('ft-un').value=f.unidadeRendimento||'kg';ingredientesEdicaoFT=(f.ingredientes||[]).map(i=>({...i}));document.getElementById('ft-titulo').textContent='✏️ Editando '+f.nome;renderIngredientesFT();document.getElementById('ficha-editor-card').scrollIntoView({behavior:'smooth'});};
 window.excluirFT=async function(id){if(!podeEditarFT()||!confirm('Excluir esta ficha? O histórico permanece.'))return;try{await deleteDoc(doc(db,'fichasTecnicas',id));await carregarFT();}catch(e){console.error(e);window.showToast('Falha ao excluir.','error');}};
 window.renderFT=function(){const q=(document.getElementById('ft-filtro')?.value||'').toLowerCase(),el=document.getElementById('ft-lista'),a=fichasCacheFT.filter(f=>!q||[f.nome,f.categoria,...(f.ingredientes||[]).map(i=>i.descricao)].some(v=>String(v||'').toLowerCase().includes(q)));document.getElementById('ft-status').textContent=a.length+' ficha(s). Custos calculados com CMC atual.';el.innerHTML=a.map(f=>{const at=atualizarCMCsFT(f),t=totalFT(at),u=Number(f.rendimento)>0?t/f.rendimento:0;return '<div class="card"><h4>'+escHtml(f.nome)+'</h4><small>'+escHtml(f.categoria||'Sem categoria')+' · rendimento '+f.rendimento+' '+escHtml(f.unidadeRendimento||'kg')+'</small><p><b>Total '+dinheiroFT(t)+' · por '+escHtml(f.unidadeRendimento||'unidade')+' '+dinheiroFT(u)+'</b></p><details><summary>Ingredientes</summary>'+at.ingredientes.map(i=>'<p style="font-size:12px;">'+escHtml(i.descricao)+' · '+i.qtd+' × FC '+i.fc+' · CMC '+dinheiroFT(i.cmc)+' · '+dinheiroFT(i.qtd*i.fc*i.cmc)+(i.ausente?' <b style="color:red;">Não localizado na base atual</b>':'')+'</p>').join('')+'</details>'+(podeEditarFT()?'<button class="btn-outline" style="width:auto;" onclick="editarFT(\''+f.id+'\')">Editar</button> <button class="btn-red" style="width:auto;" onclick="excluirFT(\''+f.id+'\')">Excluir</button>':'')+'</div>';}).join('')||'<p>Nenhuma ficha cadastrada.</p>';};
+async function atualizarCustosFichasAposImportacao(){
+ if(cargoAtual!=='CHEFE'||!currentUser)return;
+ try{
+  const snap=await getDocs(collection(db,'fichasTecnicas'));
+  for(const d of snap.docs){
+   const f={id:d.id,...d.data()},atual=atualizarCMCsFT(f);
+   const mudou=(f.ingredientes||[]).some((ant,n)=>Number(ant.cmc||0)!==Number(atual.ingredientes[n]?.cmc||0)||!!ant.ausente!==!!atual.ingredientes[n]?.ausente);
+   if(!mudou)continue;
+   const custoTotal=totalFT(atual),custoPorUnidade=Number(f.rendimento)>0?custoTotal/Number(f.rendimento):0,agora=Date.now();
+   await setDoc(doc(db,'fichasTecnicas',d.id),{...atual,custoTotal,custoPorUnidade,atualizadoEm:agora,ultimaAtualizacaoCMC:agora});
+   await setDoc(doc(db,'historicoCustos','hc_'+agora+'_'+Math.random().toString(36).slice(2)),{fichaId:d.id,nome:f.nome,custoTotal,custoPorUnidade,unidadeRendimento:f.unidadeRendimento||'kg',timestamp:agora,uid:currentUser.uid,evento:'atualizacao_base_importada'});
+  }
+ }catch(e){console.error('Erro ao atualizar CMC das fichas:',e);}
+}
 async function carregarFT(){if(!currentUser||!podeVerFT())return;try{const x=await getDocs(collection(db,'fichasTecnicas'));fichasCacheFT=x.docs.map(d=>({id:d.id,...d.data()}));window.renderFT();}catch(e){console.error(e);document.getElementById('ft-status').textContent='Erro de acesso. Confira as regras Firestore.';}}
 window.carregarPermissoesFichas=async function(){if(cargoAtual!=='CHEFE')return;const el=document.getElementById('ficha-permissoes-lista');el.textContent='Carregando...';try{const x=await getDocs(collection(db,'usuarios'));el.innerHTML=x.docs.map(d=>{const p=d.data(),v=p.permissoes?.fichasTecnicas||{};return '<div style="padding:10px 0;border-bottom:1px solid var(--border);"><b>'+escHtml(p.nome||p.email||d.id)+'</b> <small>'+escHtml(p.email||'')+'</small><p><label><input type="checkbox" id="ftc-'+d.id+'" '+(v.consultar===true?'checked':'')+'> Consultar</label> <label><input type="checkbox" id="fte-'+d.id+'" '+(v.editar===true?'checked':'')+'> Cadastrar/editar/excluir</label></p><button class="btn-blue" style="width:auto;" onclick="salvarPermissoesFT(\''+d.id+'\')">Salvar permissões</button></div>';}).join('')||'Nenhum usuário.';}catch(e){console.error(e);el.textContent='Falha ao listar usuários; confira as regras.';}};
 window.salvarPermissoesFT=async function(uid){if(cargoAtual!=='CHEFE')return;try{const r=doc(db,'usuarios',uid),x=await getDoc(r),p=x.data(),per={consultar:document.getElementById('ftc-'+uid).checked,editar:document.getElementById('fte-'+uid).checked};await setDoc(r,{...p,permissoes:{...(p.permissoes||{}),fichasTecnicas:per}});if(uid===currentUser.uid){perfilAtual={...perfilAtual,permissoes:{...(perfilAtual.permissoes||{}),fichasTecnicas:per}};aplicarAcessoFT();}window.showToast('Permissões atualizadas.','success');}catch(e){console.error(e);window.showToast('Falha ao salvar permissões. Confira as regras Firestore.','error');}};

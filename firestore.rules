@@ -33,13 +33,17 @@ service cloud.firestore {
 
     match /usuarios/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isChefe());
-      allow create, delete: if false;
-      // O CHEFE só pode alterar o mapa de permissões da funcionalidade de fichas.
+      allow create: if isChefe()
+        && request.resource.data.keys().hasAll(['nome', 'email', 'cargo', 'ativo', 'permissoes'])
+        && request.resource.data.cargo in ['CHEFE', 'OPERADOR']
+        && request.resource.data.ativo is bool;
       allow update: if isChefe()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['permissoes'])
-        && request.resource.data.permissoes.diff(resource.data.permissoes).affectedKeys().hasOnly(['fichasTecnicas']);
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['nome', 'cargo', 'ativo', 'permissoes', 'atualizadoEm', 'atualizadoPor'])
+        && request.resource.data.cargo in ['CHEFE', 'OPERADOR']
+        && request.resource.data.ativo is bool;
+      allow delete: if false;
     }
-
     match /catalogo/{docId} {
       allow read: if signedIn();
       allow create, update, delete: if isChefe();

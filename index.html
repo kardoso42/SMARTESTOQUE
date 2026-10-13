@@ -1997,17 +1997,20 @@ window.criarUsuarioGestao=async function(){
  if(cargoAtual!=='CHEFE')return window.showToast('Somente o CHEFE pode cadastrar usuários.','error');
  const nome=document.getElementById('gu-nome').value.trim(),email=document.getElementById('gu-email').value.trim().toLowerCase(),senha=document.getElementById('gu-senha').value,cargo=document.getElementById('gu-cargo').value;
  if(!nome||!email.includes('@')||senha.length<6)return window.showToast('Informe nome, e-mail válido e senha com pelo menos 6 caracteres.','warning');
- let appSec=null;
+ let appSec=null,authSec=null;
  try{
-  window.showToast('Criando conta…','info');
-  appSec=initializeApp(firebaseConfig,'gestao-'+Date.now());
-  const authSec=getAuth(appSec);
-  const cred=await createUserWithEmailAndPassword(authSec,email,senha);
-  await setDoc(doc(db,'usuarios',cred.user.uid),{nome,email,cargo,ativo:true,permissoes:permissoesPadraoGestao(cargo),criadoEm:Date.now(),criadoPor:currentUser.uid});
-  await signOut(authSec);
-  document.getElementById('gu-nome').value='';document.getElementById('gu-email').value='';document.getElementById('gu-senha').value='';
-  window.showToast('Usuário criado com sucesso.','success');await carregarUsuariosGestao();
- }catch(e){console.error(e);const m=e?.code==='auth/email-already-in-use'?'Esse e-mail já está cadastrado.':e?.code==='auth/weak-password'?'A senha precisa ter pelo menos 6 caracteres.':e?.code==='permission-denied'?'O Firebase bloqueou a criação do perfil. Publique as regras atualizadas.':'Não foi possível criar o usuário: '+(e?.message||'erro desconhecido');window.showToast(m,'error');}
+  window.showToast('Criando conta e perfil…','info');
+  appSec=initializeApp(firebaseConfig,'gestao-'+Date.now());authSec=getAuth(appSec);
+  let cred,recuperacao=false;
+  try{cred=await createUserWithEmailAndPassword(authSec,email,senha);}
+  catch(authErr){if(authErr?.code!=='auth/email-already-in-use')throw authErr;recuperacao=true;cred=await signInWithEmailAndPassword(authSec,email,senha);}
+  const uid=cred.user.uid,perfilRef=doc(db,'usuarios',uid),existente=await getDoc(perfilRef);
+  if(existente.exists()){await signOut(authSec);document.getElementById('gu-senha').value='';await carregarUsuariosGestao();return window.showToast('O perfil já existe. Atualizei a lista de usuários.','warning');}
+  await setDoc(perfilRef,{nome,email,cargo,ativo:true,permissoes:permissoesPadraoGestao(cargo),criadoEm:Date.now(),criadoPor:currentUser.uid});
+  await signOut(authSec);document.getElementById('gu-nome').value='';document.getElementById('gu-email').value='';document.getElementById('gu-senha').value='';
+  await carregarUsuariosGestao();window.showToast(recuperacao?'Perfil criado para a conta existente.':'Usuário criado com sucesso.','success');
+ }catch(e){console.error(e);const m=e?.code==='auth/invalid-credential'||e?.code==='auth/wrong-password'?'A conta já existe, mas a senha não confere. Use a senha original.':e?.code==='auth/email-already-in-use'?'A conta já existe. Use a senha original para concluir o perfil.':e?.code==='auth/weak-password'?'A senha precisa ter pelo menos 6 caracteres.':e?.code==='permission-denied'?'O Firestore negou a gravação do perfil. As regras precisam ser publicadas no Firebase Console.':'Não foi possível concluir o cadastro: '+(e?.message||'erro desconhecido');window.showToast(m,'error');}
+ finally{if(authSec)await signOut(authSec).catch(()=>{});}
 };
 window.carregarUsuariosGestao=async function(){if(cargoAtual!=='CHEFE')return;const el=document.getElementById('gu-status');el.textContent='Carregando usuários…';try{const snap=await getDocs(collection(db,'usuarios'));usuariosGestaoCache=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR'));window.renderUsuariosGestao();}catch(e){console.error(e);el.textContent='Não foi possível listar usuários. Publique as regras atualizadas no Firebase.';}};
 window.renderUsuariosGestao=function(){const q=(document.getElementById('gu-filtro')?.value||'').trim().toLowerCase(),a=usuariosGestaoCache.filter(u=>[u.nome,u.email,u.cargo].some(v=>String(v||'').toLowerCase().includes(q)));document.getElementById('gu-status').textContent=a.length+' usuário(s)';document.getElementById('gu-lista').innerHTML=a.map(u=>'<div class="card" style="margin:10px 0;"><h4>'+escHtml(u.nome||'Sem nome')+'</h4><small>'+escHtml(u.email||'')+' · '+escHtml(u.cargo||'Sem cargo')+' · '+(u.ativo===false?'INATIVO':'ATIVO')+'</small><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-top:10px;"><label>Nome<input id="gu-nome-'+u.id+'" value="'+escHtml(u.nome||'')+'" maxlength="100" style="display:block;width:100%;"></label><label>Cargo<select id="gu-cargo-'+u.id+'" style="display:block;width:100%;"><option value="OPERADOR" '+(u.cargo==='OPERADOR'?'selected':'')+'>OPERADOR</option><option value="CHEFE" '+(u.cargo==='CHEFE'?'selected':'')+'>CHEFE</option></select></label><label>Situação<select id="gu-ativo-'+u.id+'" style="display:block;width:100%;"><option value="true" '+(u.ativo!==false?'selected':'')+'>Ativo</option><option value="false" '+(u.ativo===false?'selected':'')+'>Inativo</option></select></label></div><h5 style="margin:12px 0 6px;">Permissões</h5><label><input type="checkbox" id="gu-ftc-'+u.id+'" '+(u.permissoes?.fichasTecnicas?.consultar===true?'checked':'')+'> Consultar Fichas Técnicas & Custos</label><br><label><input type="checkbox" id="gu-fte-'+u.id+'" '+(u.permissoes?.fichasTecnicas?.editar===true?'checked':'')+'> Cadastrar/editar/excluir fichas</label><br><button class="btn-blue" style="width:auto;margin-top:8px;" onclick="salvarUsuarioGestao(\''+u.id+'\')">Salvar alterações</button></div>').join('')||'<p>Nenhum usuário encontrado.</p>';};

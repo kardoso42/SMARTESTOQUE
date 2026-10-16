@@ -382,7 +382,96 @@
             .report-card { border: 1px solid black; }
             #view-relatorios { display: block !important; }
         }
-    </style>
+    
+        /* Smart Estoque — acabamento profissional da área de Fichas Técnicas (escopo isolado) */
+        #view-fichas-tecnicas { color: var(--text); }
+        #view-fichas-tecnicas > h2 {
+            display:flex; align-items:center; gap:10px; margin:4px 0 8px;
+            font-size:clamp(22px,2.2vw,29px); font-weight:800; letter-spacing:-.7px;
+        }
+        #view-fichas-tecnicas > p {
+            margin:0 0 22px; max-width:900px; font-size:13px; line-height:1.7;
+            color:var(--ink-muted);
+        }
+        #view-fichas-tecnicas .card {
+            border:1px solid var(--border); border-radius:16px; padding:clamp(16px,2.1vw,26px);
+            background:var(--surface); box-shadow:var(--shadow-soft); margin-bottom:18px;
+            transition:border-color .2s ease, box-shadow .2s ease;
+        }
+        #view-fichas-tecnicas #ficha-editor-card { border-top:4px solid var(--blue); }
+        #view-fichas-tecnicas #ficha-editor-card > h3,
+        #view-fichas-tecnicas .card > h3 {
+            margin:0 0 20px; font-size:17px; font-weight:800; letter-spacing:-.25px;
+            color:var(--blue-dark);
+        }
+        #view-fichas-tecnicas label {
+            display:block; color:var(--ink-muted); font-size:12px; font-weight:600;
+            line-height:1.6; min-width:0;
+        }
+        #view-fichas-tecnicas input:not([type=checkbox]):not([type=radio]),
+        #view-fichas-tecnicas select,
+        #view-fichas-tecnicas textarea {
+            box-sizing:border-box; min-height:44px; padding:11px 13px; margin-top:6px;
+            border:1px solid var(--border); border-radius:9px; background:var(--surface);
+            color:var(--text); font:500 13px 'Poppins',system-ui,sans-serif;
+            outline:none; box-shadow:0 1px 2px rgba(15,23,42,.03);
+            transition:border-color .18s ease, box-shadow .18s ease, background .18s ease;
+        }
+        #view-fichas-tecnicas input:focus,
+        #view-fichas-tecnicas select:focus,
+        #view-fichas-tecnicas textarea:focus {
+            border-color:var(--blue); box-shadow:0 0 0 4px var(--ring);
+        }
+        #view-fichas-tecnicas #ficha-editor-card > div:first-of-type {
+            gap:16px !important; margin-bottom:20px;
+        }
+        #view-fichas-tecnicas #ficha-editor-card > div:nth-of-type(2) {
+            padding:clamp(14px,2vw,22px) !important; margin:0 0 16px !important;
+            border:1px solid var(--border); border-radius:13px;
+            background:var(--surface-soft) !important;
+        }
+        #view-fichas-tecnicas #ficha-editor-card > div:nth-of-type(2) h4 {
+            margin:0 0 14px; font-size:14px; font-weight:800; color:var(--blue-dark);
+        }
+        #view-fichas-tecnicas #ft-busca { width:100%; }
+        #view-fichas-tecnicas #ft-selecionado { margin:10px 0 14px; color:var(--ink-muted); }
+        #view-fichas-tecnicas #ft-resultados { margin-top:8px; }
+        #view-fichas-tecnicas #ft-ingredientes {
+            display:grid; gap:8px; margin-top:14px;
+        }
+        #view-fichas-tecnicas #ft-ingredientes > * {
+            padding:12px 14px !important; border:1px solid var(--border);
+            border-radius:10px; background:var(--surface); margin:0;
+        }
+        #view-fichas-tecnicas #ft-previa {
+            padding:18px !important; margin:0 0 18px; border-radius:12px;
+            border:1px solid var(--border); background:var(--surface-soft) !important;
+        }
+        #view-fichas-tecnicas button {
+            min-height:42px; border-radius:9px; font-weight:700; letter-spacing:.1px;
+            transition:transform .16s ease, box-shadow .16s ease, filter .16s ease;
+        }
+        #view-fichas-tecnicas button:hover:not(:disabled) {
+            transform:translateY(-1px); box-shadow:0 7px 16px rgba(37,99,235,.14);
+        }
+        #view-fichas-tecnicas #ficha-editor-card > button { margin-right:8px; margin-bottom:4px; }
+        #view-fichas-tecnicas #ft-status { padding:10px 0; }
+        #view-fichas-tecnicas #ft-lista > * {
+            border-radius:12px;
+        }
+        body.dark-mode #view-fichas-tecnicas #ficha-editor-card > div:nth-of-type(2) {
+            background:var(--surface-soft) !important;
+        }
+        @media (max-width:640px) {
+            #view-fichas-tecnicas .card { padding:15px; border-radius:12px; }
+            #view-fichas-tecnicas #ficha-editor-card > div:nth-of-type(2) > div[style*="grid-template-columns:1fr 1fr"] {
+                grid-template-columns:1fr !important;
+            }
+            #view-fichas-tecnicas #ficha-editor-card > div:first-of-type {
+                grid-template-columns:1fr !important;
+            }
+        }
+</style>
     <script>
         window.tentarCarregarDuplo = function(imgEl) {
             if (!imgEl.dataset.attempt) {

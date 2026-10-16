@@ -471,6 +471,105 @@
                 grid-template-columns:1fr !important;
             }
         }
+
+        /* Smart Estoque — Gestão de Usuários: acabamento administrativo premium */
+        #view-gestao-usuarios { color:var(--text); }
+        #view-gestao-usuarios > h2 {
+            display:flex; align-items:center; gap:10px; margin:4px 0 8px;
+            font-size:clamp(23px,2.2vw,30px); font-weight:800; letter-spacing:-.7px;
+        }
+        #view-gestao-usuarios > p {
+            max-width:900px; margin:0 0 22px; color:var(--ink-muted);
+            font-size:13px; line-height:1.75;
+        }
+        #view-gestao-usuarios > .card {
+            margin:0 0 20px; padding:clamp(16px,2.2vw,26px);
+            border:1px solid var(--border); border-radius:16px;
+            background:var(--surface); box-shadow:var(--shadow-soft);
+        }
+        #view-gestao-usuarios > .card:first-of-type { border-top:4px solid var(--blue); }
+        #view-gestao-usuarios > .card > h3,
+        #view-gestao-usuarios > .card > div:first-child h3 {
+            margin:0 0 18px; color:var(--blue-dark);
+            font-size:16px; font-weight:800; letter-spacing:-.25px;
+        }
+        #view-gestao-usuarios label {
+            display:block; min-width:0; color:var(--ink-muted);
+            font-size:12px; font-weight:600; line-height:1.7;
+        }
+        #view-gestao-usuarios input:not([type=checkbox]):not([type=radio]),
+        #view-gestao-usuarios select {
+            box-sizing:border-box; width:100%; min-height:44px; margin-top:6px;
+            padding:10px 12px; border:1px solid var(--border); border-radius:9px;
+            background:var(--surface); color:var(--text);
+            font:500 13px 'Poppins',system-ui,sans-serif;
+            outline:none; transition:border-color .18s ease,box-shadow .18s ease;
+        }
+        #view-gestao-usuarios input:focus,
+        #view-gestao-usuarios select:focus {
+            border-color:var(--blue); box-shadow:0 0 0 4px var(--ring);
+        }
+        #view-gestao-usuarios .btn-blue,
+        #view-gestao-usuarios .btn-outline {
+            min-height:42px; padding:10px 16px; border-radius:9px;
+            font-weight:700; letter-spacing:.1px;
+            transition:transform .16s ease,box-shadow .16s ease;
+        }
+        #view-gestao-usuarios .btn-blue:hover,
+        #view-gestao-usuarios .btn-outline:hover {
+            transform:translateY(-1px); box-shadow:0 7px 16px rgba(37,99,235,.12);
+        }
+        #view-gestao-usuarios > .card > p {
+            color:var(--ink-muted); font-size:12px; line-height:1.7;
+        }
+        #view-gestao-usuarios #gu-filtro { margin:4px 0 8px; }
+        #view-gestao-usuarios #gu-status {
+            display:flex; align-items:center; gap:8px; min-height:18px;
+            margin:6px 0 12px; color:var(--ink-muted); font-size:12px;
+        }
+        #view-gestao-usuarios #gu-lista {
+            display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));
+            gap:14px; align-items:start; margin-top:10px;
+        }
+        #view-gestao-usuarios #gu-lista > .card {
+            box-sizing:border-box; min-width:0; margin:0 !important;
+            padding:18px !important; border:1px solid var(--border);
+            border-radius:13px; background:var(--surface);
+            box-shadow:0 3px 12px rgba(15,23,42,.035);
+        }
+        #view-gestao-usuarios #gu-lista h4 {
+            margin:0 0 5px; color:var(--blue-dark);
+            font-size:15px; font-weight:800; overflow-wrap:anywhere;
+        }
+        #view-gestao-usuarios #gu-lista small {
+            display:block; margin-bottom:14px; color:var(--ink-muted);
+            font-size:11px; line-height:1.7; overflow-wrap:anywhere;
+        }
+        #view-gestao-usuarios #gu-lista h5 {
+            margin:16px 0 9px !important; padding-top:13px;
+            border-top:1px solid var(--border); color:var(--blue-dark);
+            font-size:12px; font-weight:800; letter-spacing:.3px;
+            text-transform:uppercase;
+        }
+        #view-gestao-usuarios #gu-lista label {
+            display:flex; align-items:flex-start; gap:9px;
+            padding:9px 10px; margin:7px 0; border:1px solid var(--border);
+            border-radius:9px; background:var(--surface-soft);
+            color:var(--text); font-size:12px; font-weight:500; line-height:1.5;
+        }
+        #view-gestao-usuarios #gu-lista label input[type=checkbox] {
+            width:16px; height:16px; flex:0 0 16px; margin:2px 0 0;
+            accent-color:var(--blue);
+        }
+        #view-gestao-usuarios #gu-lista button { margin-top:12px !important; }
+        body.dark-mode #view-gestao-usuarios #gu-lista > .card {
+            box-shadow:0 3px 12px rgba(0,0,0,.12);
+        }
+        @media(max-width:640px) {
+            #view-gestao-usuarios > .card { padding:15px; border-radius:12px; }
+            #view-gestao-usuarios #gu-lista { grid-template-columns:minmax(0,1fr); }
+            #view-gestao-usuarios #gu-lista > .card { padding:14px !important; }
+        }
 </style>
     <script>
         window.tentarCarregarDuplo = function(imgEl) {

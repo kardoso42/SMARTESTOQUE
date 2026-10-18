@@ -117,6 +117,23 @@ service cloud.firestore {
         );
     }
 
+    match /avarias/{avariaId} {
+      allow read: if isActive();
+      allow create: if isActive()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasAll([
+          'sku', 'produto', 'quantidade', 'local', 'tipo',
+          'observacoes', 'status', 'uid', 'criadoEm'
+        ]);
+      allow update: if isChefe()
+        || (isActive()
+          && resource.data.uid == request.auth.uid
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['observacoes', 'status', 'atualizadoEm']));
+      allow delete: if isChefe();
+    }
+
     match /fichasTecnicas/{fichaId} {
       allow read: if podeConsultarFichas();
       allow create, update, delete: if podeEditarFichas();

@@ -1388,10 +1388,13 @@
             else qr.textContent='QR indisponível — confira a conexão e recarregue.';
         }
         window.imprimirEtiquetaGerada = function(containerId) {
-            const el=document.getElementById(containerId); if(!el) return;
-            const area=el.querySelector('.etq-print-area'); if(!area) return;
+            const el=document.getElementById(containerId); if(!el)return;
+            const area=el.querySelector('.etq-print-area'); if(!area)return;
+            const printable=area.cloneNode(true);
+            printable.querySelectorAll('button').forEach(b=>b.remove());
+            printable.querySelectorAll('.etq-qr canvas').forEach(c=>{const img=document.createElement('img');try{img.src=c.toDataURL('image/png');}catch(e){}c.replaceWith(img);});
             const w=window.open('','_blank','width=800,height=650'); if(!w){window.showToast('Permita a janela de impressão no navegador.','error');return;}
-            w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Etiqueta Smart Estoque</title><style>body{font-family:Arial,sans-serif;padding:18px;color:#111}.label{border:1px solid #bbb;padding:14px;display:flex;gap:12px;align-items:center;width:95%;box-sizing:border-box}.label img{width:110px;height:110px}.label canvas{width:110px;height:110px}.meta{font-size:12px;line-height:1.6}@media print{@page{size:100mm 60mm;margin:3mm}}</style></head><body><div class="label">'+area.innerHTML.replace(/<button[\s\S]*?<\/button>/g,'')+'</div><script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>'); w.document.close();
+            w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Etiqueta Smart Estoque</title><style>*{box-sizing:border-box}body{font-family:Arial,sans-serif;padding:0;margin:0;color:#111}.etq-print-area{display:flex!important;flex-direction:row!important;align-items:center!important;gap:3mm!important;width:100%!important;min-height:50mm!important;padding:3mm!important;border:1px solid #bbb!important;overflow:hidden}.etq-qr{display:flex!important;align-items:center!important;justify-content:center!important;flex:0 0 27mm!important;width:27mm!important;height:27mm!important;max-width:27mm!important}.etq-qr img{display:block!important;width:27mm!important;height:27mm!important;object-fit:contain}.etq-print-area>div:nth-child(2){flex:1 1 auto!important;min-width:0!important;font-size:9pt!important;line-height:1.35!important;overflow-wrap:anywhere!important}.etq-print-area strong{display:block!important;font-size:10pt!important;line-height:1.2!important;margin-bottom:1mm!important}.etq-print-area button{display:none!important}@media print{@page{size:100mm 60mm;margin:2mm}}</style></head><body>'+printable.outerHTML+'<script>window.onload=()=>setTimeout(()=>window.print(),300)<\\/script></body></html>'); w.document.close();
         };
         window.gerarEtiquetaIdentificacao = function() {
             const sku=document.getElementById('etq-sku').value.trim(), descricao=document.getElementById('etq-descricao').value.trim(), lote=document.getElementById('etq-lote').value.trim(), validade=document.getElementById('etq-validade').value, local=document.getElementById('etq-local').value.trim(), qtd=Number(document.getElementById('etq-quantidade').value||1);

@@ -1390,11 +1390,17 @@
         window.imprimirEtiquetaGerada = function(containerId) {
             const el=document.getElementById(containerId); if(!el)return;
             const area=el.querySelector('.etq-print-area'); if(!area)return;
-            const printable=area.cloneNode(true);
-            printable.querySelectorAll('button').forEach(b=>b.remove());
-            printable.querySelectorAll('.etq-qr canvas').forEach(c=>{const img=document.createElement('img');try{img.src=c.toDataURL('image/png');}catch(e){}c.replaceWith(img);});
-            const w=window.open('','_blank','width=800,height=650'); if(!w){window.showToast('Permita a janela de impressão no navegador.','error');return;}
-            w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Etiqueta Smart Estoque</title><style>*{box-sizing:border-box}body{font-family:Arial,sans-serif;padding:0;margin:0;color:#111}.etq-print-area{display:flex!important;flex-direction:row!important;align-items:center!important;gap:3mm!important;width:100%!important;min-height:50mm!important;padding:3mm!important;border:1px solid #bbb!important;overflow:hidden}.etq-qr{display:flex!important;align-items:center!important;justify-content:center!important;flex:0 0 27mm!important;width:27mm!important;height:27mm!important;max-width:27mm!important}.etq-qr img{display:block!important;width:27mm!important;height:27mm!important;object-fit:contain}.etq-print-area>div:nth-child(2){flex:1 1 auto!important;min-width:0!important;font-size:9pt!important;line-height:1.35!important;overflow-wrap:anywhere!important}.etq-print-area strong{display:block!important;font-size:10pt!important;line-height:1.2!important;margin-bottom:1mm!important}.etq-print-area button{display:none!important}@media print{@page{size:100mm 60mm;margin:2mm}}</style></head><body>'+printable.outerHTML+'<script>window.onload=()=>setTimeout(()=>window.print(),300)<\\/script></body></html>'); w.document.close();
+            const qr=area.querySelector('.etq-qr');
+            const textBlock=area.querySelector('div:nth-child(2)');
+            if(!textBlock){window.showToast('Não foi possível preparar os dados da etiqueta.','error');return;}
+            let qrSrc='';
+            if(qr){const img=qr.querySelector('img');const canvas=qr.querySelector('canvas');if(img&&img.src)qrSrc=img.src;else if(canvas){try{qrSrc=canvas.toDataURL('image/png')}catch(e){}}}
+            const textHtml=textBlock.innerHTML;
+            const w=window.open('','_blank','width=800,height=650');
+            if(!w){window.showToast('Permita a janela de impressão no navegador.','error');return;}
+            w.document.open();
+            w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Etiqueta Smart Estoque</title><style>*{box-sizing:border-box}html,body{margin:0;padding:0;font-family:Arial,sans-serif;color:#111}.label{width:96mm;height:56mm;padding:3mm;border:1px solid #bbb;display:grid;grid-template-columns:29mm minmax(0,1fr);column-gap:3mm;align-items:center;overflow:hidden}.qr{width:29mm;height:29mm;display:flex;align-items:center;justify-content:center}.qr img{display:block;width:29mm;height:29mm;object-fit:contain}.details{min-width:0;max-width:100%;font-size:9pt;line-height:1.35;overflow-wrap:anywhere;word-break:break-word}.details strong{display:block;font-size:10pt;line-height:1.2;margin:0 0 2mm;overflow-wrap:anywhere}.details br{display:block;content:"";margin-top:1mm}@media print{@page{size:100mm 60mm;margin:2mm}}</style></head><body><div class="label"><div class="qr">'+(qrSrc?'<img src="'+qrSrc+'" alt="QR Code">':'')+'</div><div class="details">'+textHtml+'</div></div><script>window.onload=()=>setTimeout(()=>window.print(),500)<\\/script></body></html>');
+            w.document.close();
         };
         window.gerarEtiquetaIdentificacao = function() {
             const sku=document.getElementById('etq-sku').value.trim(), descricao=document.getElementById('etq-descricao').value.trim(), lote=document.getElementById('etq-lote').value.trim(), validade=document.getElementById('etq-validade').value, local=document.getElementById('etq-local').value.trim(), qtd=Number(document.getElementById('etq-quantidade').value||1);
@@ -1422,7 +1428,7 @@
                 desenharEtiquetaQR('av-preview',url,'AVARIA — NÃO UTILIZAR / AGUARDAR AVALIAÇÃO');
                 document.getElementById('av-preview').dataset.avariaId=ref.id;
                 window.showToast('Avaria registrada com sucesso.','success');
-            } catch(e) { console.error(e); document.getElementById('av-status').textContent='Não foi possível salvar a ocorrência. Verifique a conexão e as permissões do Firebase.';window.showToast('Falha ao salvar avaria na nuvem.','error'); }
+            } catch(e) { console.error('Falha ao salvar avaria:',e); const codigo=e?.code||'sem código'; const detalhe=e?.message||'erro não identificado'; document.getElementById('av-status').textContent='Falha ao salvar ('+codigo+'): '+detalhe+'. Confira as regras do Firestore e a conexão.'; window.showToast('Falha ao salvar avaria ('+codigo+'). Veja o detalhe exibido abaixo do formulário.','error'); }
             finally {if(btn)btn.disabled=false;}
         };
         window.consultarAvariaPorId = async function(idDireto) {

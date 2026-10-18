@@ -876,8 +876,9 @@
       <h3 style="margin:0 0 6px;color:var(--blue-dark);">📦 Etiquetas de Identificação de Estoque</h3>
       <p style="margin:0 0 16px;font-size:12px;color:var(--gray);">Identifique produtos e caixas para agilizar contagens e auditorias. SKU, lote e validade serão impressos junto com código de leitura.</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
-        <label>SKU / código do produto<input id="etq-sku" placeholder="Ex.: SKU-00482" style="width:100%;margin-top:6px;"></label>
-        <label>Descrição<input id="etq-descricao" placeholder="Nome do produto" style="width:100%;margin-top:6px;"></label>
+        <label style="grid-column:1/-1;">Buscar produto no catálogo<input id="etq-busca-produto" list="etq-produtos-lista" autocomplete="off" placeholder="Digite SKU, descrição ou GTIN..." style="width:100%;margin-top:6px;" oninput="buscarProdutoEtiqueta(this.value)" onchange="selecionarProdutoEtiqueta(this.value)"><datalist id="etq-produtos-lista"></datalist><small id="etq-busca-status" style="display:block;color:var(--gray);margin-top:4px;">Pesquise e selecione um produto cadastrado.</small></label>
+        <label>SKU / código do produto<input id="etq-sku" placeholder="Preenchido ao selecionar produto" style="width:100%;margin-top:6px;"></label>
+        <label>Descrição<input id="etq-descricao" placeholder="Preenchido ao selecionar produto" style="width:100%;margin-top:6px;"></label>
         <label>Lote<input id="etq-lote" placeholder="Lote do fabricante" style="width:100%;margin-top:6px;"></label>
         <label>Data de validade<input id="etq-validade" type="date" style="width:100%;margin-top:6px;"></label>
         <label>Local / endereço<input id="etq-local" placeholder="Rua, prateleira, posição" style="width:100%;margin-top:6px;"></label>
@@ -893,7 +894,8 @@
       <h3 style="margin:0 0 6px;color:#b42318;">⚠️ Registro de Avarias</h3>
       <p style="margin:0 0 16px;font-size:12px;color:var(--gray);">Registre a ocorrência na nuvem e gere uma etiqueta com QR Code para localizar o histórico. Não inclua dados pessoais desnecessários nas observações.</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
-        <label>SKU / código<input id="av-sku" placeholder="SKU do produto" style="width:100%;margin-top:6px;"></label>
+        <label style="grid-column:1/-1;">Buscar produto no catálogo (opcional para caixas avulsas)<input id="av-busca-produto" list="av-produtos-lista" autocomplete="off" placeholder="Digite SKU, descrição ou GTIN..." style="width:100%;margin-top:6px;" oninput="buscarProdutoAvaria(this.value)" onchange="selecionarProdutoAvaria(this.value)"><datalist id="av-produtos-lista"></datalist><small id="av-busca-status" style="display:block;color:var(--gray);margin-top:4px;">Selecione um produto para preencher SKU e descrição automaticamente.</small></label>
+        <label>SKU / código<input id="av-sku" placeholder="Preenchido ao selecionar produto" style="width:100%;margin-top:6px;"></label>
         <label>Produto / caixa<input id="av-produto" placeholder="Descrição do produto ou caixa" style="width:100%;margin-top:6px;"></label>
         <label>Lote<input id="av-lote" placeholder="Lote, se aplicável" style="width:100%;margin-top:6px;"></label>
         <label>Quantidade afetada<input id="av-quantidade" type="number" min="1" value="1" style="width:100%;margin-top:6px;"></label>
@@ -1329,6 +1331,42 @@
                 operadorAtual = ''; cargoAtual = 'OPERADOR';
                 if (catalogoSnapshotUnsub) { catalogoSnapshotUnsub(); catalogoSnapshotUnsub = null; }
         
+
+        const rotuloProdutoEtiqueta = (p) => String(p.codigo||'').trim()+' — '+String(p.descricao||'').trim()+(p.gtin?' — GTIN '+String(p.gtin):'');
+        const indiceProdutosEtiqueta = () => (Array.isArray(baseDados)?baseDados:[]).map((p,i)=>({...p,_indice:i,_rotulo:rotuloProdutoEtiqueta(p)}));
+        const produtosEtiquetaCache = () => indiceProdutosEtiqueta();
+        window.buscarProdutoEtiqueta = function(q) {
+            const dl=document.getElementById('etq-produtos-lista'), st=document.getElementById('etq-busca-status'); if(!dl||!st)return;
+            const termo=String(q||'').trim().toLocaleLowerCase('pt-BR'); const lista=produtosEtiquetaCache();
+            const achados=termo?lista.filter(p=>[p.codigo,p.descricao,p.gtin].some(v=>String(v||'').toLocaleLowerCase('pt-BR').includes(termo))).slice(0,30):[];
+            dl.innerHTML=achados.map(p=>'<option value="'+escapeEtiqueta(p._rotulo)+'"></option>').join('');
+            st.textContent=termo?achados.length+' produto(s) sugerido(s). Selecione uma opção da lista.': 'Pesquise por SKU, descrição ou GTIN.';
+        };
+        window.selecionarProdutoEtiqueta = function(valor) {
+            const p=produtosEtiquetaCache().find(p=>p._rotulo===valor||String(p.codigo||'').trim()===String(valor||'').trim()||String(p.gtin||'').trim()===String(valor||'').trim());
+            if(!p){document.getElementById('etq-busca-status').textContent='Selecione um produto existente nas sugestões.';return;}
+            document.getElementById('etq-busca-produto').value=p._rotulo;
+            document.getElementById('etq-sku').value=p.codigo||p.gtin||'';
+            document.getElementById('etq-descricao').value=p.descricao||'';
+            if(p.local)document.getElementById('etq-local').value=p.local;
+            document.getElementById('etq-busca-status').textContent='Produto selecionado. Lote e validade devem ser conferidos para este lote.';
+        };
+        window.buscarProdutoAvaria = function(q) {
+            const dl=document.getElementById('av-produtos-lista'), st=document.getElementById('av-busca-status'); if(!dl||!st)return;
+            const termo=String(q||'').trim().toLocaleLowerCase('pt-BR'); const lista=produtosEtiquetaCache();
+            const achados=termo?lista.filter(p=>[p.codigo,p.descricao,p.gtin].some(v=>String(v||'').toLocaleLowerCase('pt-BR').includes(termo))).slice(0,30):[];
+            dl.innerHTML=achados.map(p=>'<option value="'+escapeEtiqueta(p._rotulo)+'"></option>').join('');
+            st.textContent=termo?achados.length+' produto(s) sugerido(s).': 'Pesquise por SKU, descrição ou GTIN.';
+        };
+        window.selecionarProdutoAvaria = function(valor) {
+            const p=produtosEtiquetaCache().find(p=>p._rotulo===valor||String(p.codigo||'').trim()===String(valor||'').trim()||String(p.gtin||'').trim()===String(valor||'').trim());
+            if(!p){document.getElementById('av-busca-status').textContent='Selecione um produto existente nas sugestões.';return;}
+            document.getElementById('av-busca-produto').value=p._rotulo;
+            document.getElementById('av-sku').value=p.codigo||p.gtin||'';
+            document.getElementById('av-produto').value=p.descricao||'';
+            if(p.local)document.getElementById('av-local').value=p.local;
+            document.getElementById('av-busca-status').textContent='Produto selecionado. Confira lote e localização da ocorrência.';
+        };
         // Etiquetas de identificação e rastreabilidade de avarias — V51-DEV
         const escapeEtiqueta = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
         const dataEtiquetaBR = (v) => { if(!v) return 'Não informada'; const d=new Date(v+'T12:00:00'); return Number.isNaN(d.getTime())?String(v):d.toLocaleDateString('pt-BR'); };
@@ -1357,7 +1395,7 @@
             preview.innerHTML='';
             for(let n=0;n<qtd;n++){const card=document.createElement('div');card.style.marginBottom='10px';card.id='etq-produto-preview-'+n;preview.appendChild(card);card.innerHTML='<div class="etq-print-area" style="display:flex;gap:12px;align-items:center;padding:12px;border:1px dashed var(--border);border-radius:10px;margin-bottom:10px;"><div class="etq-qr" style="width:92px;height:92px;flex:0 0 92px;"></div><div style="font-size:12px;line-height:1.6;overflow-wrap:anywhere;"><strong>'+escapeEtiqueta(descricao)+'</strong><br>SKU: '+escapeEtiqueta(sku)+'<br>Lote: '+escapeEtiqueta(lote)+'<br>Validade: '+escapeEtiqueta(dataEtiquetaBR(validade))+'<br>Local: '+escapeEtiqueta(local||'Não informado')+'</div><button class="btn-blue print-hide" onclick="imprimirEtiquetaGerada(\'etq-produto-preview-'+n+'\')">🖨️ Imprimir</button></div>';if(window.QRCode)new QRCode(card.querySelector('.etq-qr'),{text:payload,width:92,height:92});}
         };
-        window.limparEtiquetaIdentificacao = function(){['etq-sku','etq-descricao','etq-lote','etq-validade','etq-local'].forEach(id=>document.getElementById(id).value='');document.getElementById('etq-quantidade').value='1';document.getElementById('etq-preview').innerHTML='';};
+        window.limparEtiquetaIdentificacao = function(){['etq-busca-produto','etq-sku','etq-descricao','etq-lote','etq-validade','etq-local'].forEach(id=>document.getElementById(id).value='');document.getElementById('etq-quantidade').value='1';document.getElementById('etq-preview').innerHTML='';};
         window.salvarAvariaEImprimir = async function() {
             if(!currentUser){window.showToast('Entre no sistema para registrar avarias.','error');return;}
             const sku=document.getElementById('av-sku').value.trim(), produto=document.getElementById('av-produto').value.trim(), lote=document.getElementById('av-lote').value.trim(), quantidade=Number(document.getElementById('av-quantidade').value||1), local=document.getElementById('av-local').value.trim(), tipo=document.getElementById('av-tipo').value, observacoes=document.getElementById('av-observacoes').value.trim();

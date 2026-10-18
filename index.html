@@ -1112,7 +1112,7 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
-        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch, getDocs, getDoc } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch, getDocs, getDoc, addDoc } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
         const _HASH_V = "9f2b388c42a27b8761a20d4af0b23f2d01cebcba57f68c340b190f7a55280911";
 
@@ -1328,7 +1328,68 @@
             if (!u) {
                 operadorAtual = ''; cargoAtual = 'OPERADOR';
                 if (catalogoSnapshotUnsub) { catalogoSnapshotUnsub(); catalogoSnapshotUnsub = null; }
-                window.checkLogin();
+        
+        // Etiquetas de identificação e rastreabilidade de avarias — V51-DEV
+        const escapeEtiqueta = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        const dataEtiquetaBR = (v) => { if(!v) return 'Não informada'; const d=new Date(v+'T12:00:00'); return Number.isNaN(d.getTime())?String(v):d.toLocaleDateString('pt-BR'); };
+        const urlRegistroAvaria = (id) => { const u=new URL(window.location.href); u.searchParams.set('avaria',id); return u.href; };
+        function desenharEtiquetaQR(containerId, payload, tipo) {
+            const el=document.getElementById(containerId); if(!el) return;
+            el.innerHTML='<div class="etq-print-area" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:14px;border:1px dashed var(--border);border-radius:12px;"><div class="etq-qr" style="width:110px;height:110px;flex:0 0 110px;"></div><div style="flex:1;min-width:180px;"><strong>'+escapeEtiqueta(tipo)+'</strong><div style="font-size:12px;margin-top:6px;overflow-wrap:anywhere;">'+escapeEtiqueta(payload)+'</div><button class="btn-blue print-hide" onclick="imprimirEtiquetaGerada(\''+containerId+'\')" style="margin-top:10px;">🖨️ Imprimir etiqueta</button></div></div>';
+            const qr=el.querySelector('.etq-qr');
+            if(window.QRCode) new QRCode(qr,{text:payload,width:110,height:110,correctLevel:QRCode.CorrectLevel.M});
+            else qr.textContent='QR indisponível — confira a conexão e recarregue.';
+        }
+        window.imprimirEtiquetaGerada = function(containerId) {
+            const el=document.getElementById(containerId); if(!el) return;
+            const area=el.querySelector('.etq-print-area'); if(!area) return;
+            const w=window.open('','_blank','width=800,height=650'); if(!w){window.showToast('Permita a janela de impressão no navegador.','error');return;}
+            w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Etiqueta Smart Estoque</title><style>body{font-family:Arial,sans-serif;padding:18px;color:#111}.label{border:1px solid #bbb;padding:14px;display:flex;gap:12px;align-items:center;width:95%;box-sizing:border-box}.label img{width:110px;height:110px}.label canvas{width:110px;height:110px}.meta{font-size:12px;line-height:1.6}@media print{@page{size:100mm 60mm;margin:3mm}}</style></head><body><div class="label">'+area.innerHTML.replace(/<button[\s\S]*?<\/button>/g,'')+'</div><script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>'); w.document.close();
+        };
+        window.gerarEtiquetaIdentificacao = function() {
+            const sku=document.getElementById('etq-sku').value.trim(), descricao=document.getElementById('etq-descricao').value.trim(), lote=document.getElementById('etq-lote').value.trim(), validade=document.getElementById('etq-validade').value, local=document.getElementById('etq-local').value.trim(), qtd=Number(document.getElementById('etq-quantidade').value||1);
+            if(!sku||!descricao){window.showToast('Informe SKU e descrição do produto.','error');return;}
+            if(!lote){window.showToast('Informe o lote para rastreabilidade.','error');return;}
+            if(!validade){window.showToast('Informe a data de validade.','error');return;}
+            if(!Number.isInteger(qtd)||qtd<1||qtd>500){window.showToast('A quantidade deve ser de 1 a 500 etiquetas.','error');return;}
+            const payload=JSON.stringify({tipo:'PRODUTO',sku,lote,validade,local});
+            const preview=document.getElementById('etq-preview');
+            preview.innerHTML='';
+            for(let n=0;n<qtd;n++){const card=document.createElement('div');card.style.marginBottom='10px';card.id='etq-produto-preview-'+n;preview.appendChild(card);card.innerHTML='<div class="etq-print-area" style="display:flex;gap:12px;align-items:center;padding:12px;border:1px dashed var(--border);border-radius:10px;margin-bottom:10px;"><div class="etq-qr" style="width:92px;height:92px;flex:0 0 92px;"></div><div style="font-size:12px;line-height:1.6;overflow-wrap:anywhere;"><strong>'+escapeEtiqueta(descricao)+'</strong><br>SKU: '+escapeEtiqueta(sku)+'<br>Lote: '+escapeEtiqueta(lote)+'<br>Validade: '+escapeEtiqueta(dataEtiquetaBR(validade))+'<br>Local: '+escapeEtiqueta(local||'Não informado')+'</div><button class="btn-blue print-hide" onclick="imprimirEtiquetaGerada(\'etq-produto-preview-'+n+'\')">🖨️ Imprimir</button></div>';if(window.QRCode)new QRCode(card.querySelector('.etq-qr'),{text:payload,width:92,height:92});}
+        };
+        window.limparEtiquetaIdentificacao = function(){['etq-sku','etq-descricao','etq-lote','etq-validade','etq-local'].forEach(id=>document.getElementById(id).value='');document.getElementById('etq-quantidade').value='1';document.getElementById('etq-preview').innerHTML='';};
+        window.salvarAvariaEImprimir = async function() {
+            if(!currentUser){window.showToast('Entre no sistema para registrar avarias.','error');return;}
+            const sku=document.getElementById('av-sku').value.trim(), produto=document.getElementById('av-produto').value.trim(), lote=document.getElementById('av-lote').value.trim(), quantidade=Number(document.getElementById('av-quantidade').value||1), local=document.getElementById('av-local').value.trim(), tipo=document.getElementById('av-tipo').value, observacoes=document.getElementById('av-observacoes').value.trim();
+            if(!sku||!produto||!local||!observacoes){window.showToast('Preencha SKU, produto/caixa, localização e observações.','error');return;}
+            if(!Number.isInteger(quantidade)||quantidade<1){window.showToast('Informe uma quantidade válida.','error');return;}
+            const btn=document.querySelector('#card-registro-avarias .btn-red'); if(btn)btn.disabled=true;
+            try {
+                const payload={sku,produto,lote,quantidade,local,tipo,observacoes,status:'AGUARDANDO AVALIAÇÃO',uid:currentUser.uid,nomeResponsavel:operadorAtual||currentUser.email||'Usuário',criadoEm:Date.now(),atualizadoEm:Date.now()};
+                const ref=await addDoc(collection(db,'avarias'),payload);
+                const url=urlRegistroAvaria(ref.id);
+                document.getElementById('av-status').textContent='Ocorrência salva na nuvem. ID: '+ref.id;
+                desenharEtiquetaQR('av-preview',url,'AVARIA — NÃO UTILIZAR / AGUARDAR AVALIAÇÃO');
+                document.getElementById('av-preview').dataset.avariaId=ref.id;
+                window.showToast('Avaria registrada com sucesso.','success');
+            } catch(e) { console.error(e); document.getElementById('av-status').textContent='Não foi possível salvar a ocorrência. Verifique a conexão e as permissões do Firebase.';window.showToast('Falha ao salvar avaria na nuvem.','error'); }
+            finally {if(btn)btn.disabled=false;}
+        };
+        window.consultarAvariaPorId = async function(idDireto) {
+            if(!currentUser){window.showToast('Entre no sistema para consultar ocorrências.','error');return;}
+            const id=idDireto||new URLSearchParams(window.location.search).get('avaria')||prompt('Informe o ID da ocorrência:');
+            if(!id)return;
+            try {
+                const snap=await getDoc(doc(db,'avarias',id.trim()));
+                if(!snap.exists()){window.showToast('Ocorrência não encontrada.','error');return;}
+                const a=snap.data()||{};
+                const el=document.getElementById('av-status');
+                el.innerHTML='<strong>Ocorrência '+escapeEtiqueta(snap.id)+'</strong><br>Produto: '+escapeEtiqueta(a.produto)+' · SKU: '+escapeEtiqueta(a.sku)+'<br>Tipo: '+escapeEtiqueta(a.tipo)+' · Quantidade: '+escapeEtiqueta(a.quantidade)+'<br>Lote: '+escapeEtiqueta(a.lote||'—')+' · Local: '+escapeEtiqueta(a.local)+'<br>Responsável: '+escapeEtiqueta(a.nomeResponsavel)+' · Data: '+new Date(a.criadoEm||Date.now()).toLocaleString('pt-BR')+'<br>Status: '+escapeEtiqueta(a.status)+'<br>Observações: '+escapeEtiqueta(a.observacoes);
+            } catch(e){console.error(e);window.showToast('Sem acesso ao registro. Confira as permissões do Firebase.','error');}
+        };
+        window.addEventListener('DOMContentLoaded',()=>{if(new URLSearchParams(window.location.search).has('avaria')){const poll=()=>{if(currentUser)window.consultarAvariaPorId();else setTimeout(poll,800);};setTimeout(poll,800);}});
+
+        window.checkLogin();
                 return;
             }
             const autorizado = await carregarPerfilFirebase(u);

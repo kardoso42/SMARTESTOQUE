@@ -7,6 +7,7 @@
     <!-- Bibliotecas de Terceiros Autorizadas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <!-- CryptoJS para encriptação AES de dados locais -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <style>
@@ -870,6 +871,43 @@
         </table>
     </div>
 </div>
+
+    <div class="card print-hide" id="card-etiquetas-identificacao">
+      <h3 style="margin:0 0 6px;color:var(--blue-dark);">📦 Etiquetas de Identificação de Estoque</h3>
+      <p style="margin:0 0 16px;font-size:12px;color:var(--gray);">Identifique produtos e caixas para agilizar contagens e auditorias. SKU, lote e validade serão impressos junto com código de leitura.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+        <label>SKU / código do produto<input id="etq-sku" placeholder="Ex.: SKU-00482" style="width:100%;margin-top:6px;"></label>
+        <label>Descrição<input id="etq-descricao" placeholder="Nome do produto" style="width:100%;margin-top:6px;"></label>
+        <label>Lote<input id="etq-lote" placeholder="Lote do fabricante" style="width:100%;margin-top:6px;"></label>
+        <label>Data de validade<input id="etq-validade" type="date" style="width:100%;margin-top:6px;"></label>
+        <label>Local / endereço<input id="etq-local" placeholder="Rua, prateleira, posição" style="width:100%;margin-top:6px;"></label>
+        <label>Quantidade de etiquetas<input id="etq-quantidade" type="number" min="1" max="500" value="1" style="width:100%;margin-top:6px;"></label>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
+        <button class="btn-blue" onclick="gerarEtiquetaIdentificacao()">🏷️ Gerar etiqueta</button>
+        <button class="btn-outline" onclick="limparEtiquetaIdentificacao()">Limpar campos</button>
+      </div>
+      <div id="etq-preview" style="margin-top:16px;"></div>
+    </div>
+    <div class="card print-hide" id="card-registro-avarias">
+      <h3 style="margin:0 0 6px;color:#b42318;">⚠️ Registro de Avarias</h3>
+      <p style="margin:0 0 16px;font-size:12px;color:var(--gray);">Registre a ocorrência na nuvem e gere uma etiqueta com QR Code para localizar o histórico. Não inclua dados pessoais desnecessários nas observações.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+        <label>SKU / código<input id="av-sku" placeholder="SKU do produto" style="width:100%;margin-top:6px;"></label>
+        <label>Produto / caixa<input id="av-produto" placeholder="Descrição do produto ou caixa" style="width:100%;margin-top:6px;"></label>
+        <label>Lote<input id="av-lote" placeholder="Lote, se aplicável" style="width:100%;margin-top:6px;"></label>
+        <label>Quantidade afetada<input id="av-quantidade" type="number" min="1" value="1" style="width:100%;margin-top:6px;"></label>
+        <label>Estoque / localização<input id="av-local" placeholder="Depósito, corredor, posição" style="width:100%;margin-top:6px;"></label>
+        <label>Tipo de avaria<select id="av-tipo" style="width:100%;margin-top:6px;"><option>Embalagem danificada</option><option>Produto quebrado</option><option>Vazamento</option><option>Contaminação suspeita</option><option>Vencido</option><option>Outro</option></select></label>
+      </div>
+      <label style="display:block;margin-top:12px;">O que aconteceu? / observações<textarea id="av-observacoes" rows="3" placeholder="Descreva a ocorrência e o estado do produto..." style="width:100%;box-sizing:border-box;margin-top:6px;"></textarea></label>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">
+        <button class="btn-red" onclick="salvarAvariaEImprimir()">Salvar avaria e gerar etiqueta QR</button>
+        <button class="btn-outline" onclick="consultarAvariaPorId()">Consultar ocorrência por ID</button>
+      </div>
+      <div id="av-status" role="status" style="margin-top:12px;font-size:12px;color:var(--gray);"></div>
+      <div id="av-preview" style="margin-top:12px;"></div>
+    </div>
 
 </div>
 <div id="modal-etiquetas-vencidas" class="modal" style="z-index:10010;">

@@ -1390,17 +1390,15 @@
         window.imprimirEtiquetaGerada = function(containerId) {
             const el=document.getElementById(containerId); if(!el)return;
             const area=el.querySelector('.etq-print-area'); if(!area)return;
-            const qr=area.querySelector('.etq-qr');
-            const textBlock=area.querySelector('div:nth-child(2)');
+            const qr=area.querySelector('.etq-qr'), textBlock=area.querySelector('div:nth-child(2)');
             if(!textBlock){window.showToast('Não foi possível preparar os dados da etiqueta.','error');return;}
-            let qrSrc='';
-            if(qr){const img=qr.querySelector('img');const canvas=qr.querySelector('canvas');if(img&&img.src)qrSrc=img.src;else if(canvas){try{qrSrc=canvas.toDataURL('image/png')}catch(e){}}}
-            const textHtml=textBlock.innerHTML;
-            const w=window.open('','_blank','width=800,height=650');
-            if(!w){window.showToast('Permita a janela de impressão no navegador.','error');return;}
-            w.document.open();
-            w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Etiqueta Smart Estoque</title><style>*{box-sizing:border-box}html,body{margin:0;padding:0;font-family:Arial,sans-serif;color:#111}.label{width:96mm;height:56mm;padding:3mm;border:1px solid #bbb;display:grid;grid-template-columns:29mm minmax(0,1fr);column-gap:3mm;align-items:center;overflow:hidden}.qr{width:29mm;height:29mm;display:flex;align-items:center;justify-content:center}.qr img{display:block;width:29mm;height:29mm;object-fit:contain}.details{min-width:0;max-width:100%;font-size:9pt;line-height:1.35;overflow-wrap:anywhere;word-break:break-word}.details strong{display:block;font-size:10pt;line-height:1.2;margin:0 0 2mm;overflow-wrap:anywhere}.details br{display:block;content:"";margin-top:1mm}@media print{@page{size:100mm 60mm;margin:2mm}}</style></head><body><div class="label"><div class="qr">'+(qrSrc?'<img src="'+qrSrc+'" alt="QR Code">':'')+'</div><div class="details">'+textHtml+'</div></div><script>window.onload=()=>setTimeout(()=>window.print(),500)<\\/script></body></html>');
-            w.document.close();
+            let qrSrc=''; if(qr){const img=qr.querySelector('img'),canvas=qr.querySelector('canvas');if(img&&img.src)qrSrc=img.src;else if(canvas){try{qrSrc=canvas.toDataURL('image/png')}catch(e){}}}
+            const clone=textBlock.cloneNode(true);clone.querySelectorAll('button,.print-hide').forEach(n=>n.remove());
+            const details=clone.innerHTML,title=(clone.querySelector('strong')?.textContent||'SMART ESTOQUE').trim();
+            const label='<article class="label"><div class="qr">'+(qrSrc?'<img src="'+qrSrc+'" alt="QR Code">':'<span>QR</span>')+'</div><div class="details">'+details+'</div></article>';
+            const w=window.open('','_blank','width=900,height=900');if(!w){window.showToast('Permita a janela de impressão no navegador.','error');return;}
+            const labels=[label];while(labels.length%21!==0)labels.push('<article class="label blank"></article>');
+            w.document.open();w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+escapeEtiqueta(title)+'</title><style>*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;font-family:Arial,sans-serif;color:#111}.sheet{width:190.5mm;height:266.7mm;margin:15.15mm 9.75mm;display:grid;grid-template-columns:repeat(3,63.5mm);grid-template-rows:repeat(7,38.1mm);page-break-after:always;break-after:page}.sheet:last-child{page-break-after:auto;break-after:auto}.label{width:63.5mm;height:38.1mm;padding:2mm;display:grid;grid-template-columns:21mm minmax(0,1fr);gap:2mm;align-items:center;overflow:hidden;border:.1mm solid #ddd}.qr{width:21mm;height:21mm;display:flex;align-items:center;justify-content:center;overflow:hidden}.qr img{width:21mm;height:21mm;object-fit:contain}.details{min-width:0;max-height:33mm;overflow:hidden;font-size:7pt;line-height:1.2;overflow-wrap:anywhere;word-break:break-word}.details strong{display:block;font-size:8pt;line-height:1.1;margin-bottom:1mm}.blank{border-color:transparent}@page{size:A4 portrait;margin:0}@media print{html,body{width:210mm;height:297mm;margin:0;padding:0}}</style></head><body><section class="sheet">'+labels.join('')+'</section><script>window.onload=function(){window.focus();window.print()}<\\/script></body></html>');w.document.close();
         };
         window.gerarEtiquetaIdentificacao = function() {
             const sku=document.getElementById('etq-sku').value.trim(), descricao=document.getElementById('etq-descricao').value.trim(), lote=document.getElementById('etq-lote').value.trim(), validade=document.getElementById('etq-validade').value, local=document.getElementById('etq-local').value.trim(), qtd=Number(document.getElementById('etq-quantidade').value||1);
@@ -2289,49 +2287,27 @@ const gerarBarcodeEtiqueta = function(texto) {
 };
 
 window.imprimirEtiquetasSelecionadas = function() {
-    const inputs = Array.from(document.querySelectorAll('#etiquetas-form-lista [data-etq-index]'));
-    const itens = Array.from(etiquetasSelecionadas.values());
+    const itens=Array.from(etiquetasSelecionadas.values());
     for(let i=0;i<itens.length;i++){
-        const validade = document.querySelector('[data-etq-index="'+i+'"][data-campo="validade"]')?.value || '';
-        const lote = document.querySelector('[data-etq-index="'+i+'"][data-campo="lote"]')?.value?.trim() || '';
-        const gtin = document.querySelector('[data-etq-index="'+i+'"][data-campo="gtin"]')?.value?.trim() || '';
-        const unidadesCaixaRaw = document.querySelector('[data-etq-index="'+i+'"][data-campo="unidadesCaixa"]')?.value?.trim() || '';
-        const copiasRaw = document.querySelector('[data-etq-index="'+i+'"][data-campo="copias"]')?.value?.trim() || '1';
-        const unidadesCaixa = unidadesCaixaRaw ? Number.parseInt(unidadesCaixaRaw, 10) : '';
-        const copias = Number.parseInt(copiasRaw, 10);
-        if(!validade) return window.showToast('Informe a validade de todos os produtos selecionados.', 'warning');
-        if(!gtin && !itens[i].codigo) return window.showToast('O produto '+(itens[i].descricao||'')+' não possui GTIN nem código/SKU.', 'error');
-        if(unidadesCaixaRaw && (!Number.isInteger(unidadesCaixa) || unidadesCaixa < 1)) return window.showToast('Informe unidades por caixa como um número inteiro maior que zero.', 'warning');
-        if(!Number.isInteger(copias) || copias < 1 || copias > 500) return window.showToast('A quantidade de etiquetas deve ser de 1 a 500 por produto.', 'warning');
-        itens[i].validade=validade; itens[i].lote=lote; itens[i].gtin=gtin; itens[i].unidadesCaixa=unidadesCaixa; itens[i].copias=copias;
+        const validade=document.querySelector('[data-etq-index="'+i+'"][data-campo="validade"]')?.value||'';
+        const lote=document.querySelector('[data-etq-index="'+i+'"][data-campo="lote"]')?.value?.trim()||'';
+        const gtin=document.querySelector('[data-etq-index="'+i+'"][data-campo="gtin"]')?.value?.trim()||'';
+        const unidadesRaw=document.querySelector('[data-etq-index="'+i+'"][data-campo="unidadesCaixa"]')?.value?.trim()||'';
+        const copiasRaw=document.querySelector('[data-etq-index="'+i+'"][data-campo="copias"]')?.value?.trim()||'1';
+        const unidades=unidadesRaw?Number.parseInt(unidadesRaw,10):'',copias=Number.parseInt(copiasRaw,10);
+        if(!validade)return window.showToast('Informe a validade de todos os produtos selecionados.','warning');
+        if(!gtin&&!itens[i].codigo)return window.showToast('O produto '+(itens[i].descricao||'')+' não possui GTIN nem código/SKU.','error');
+        if(unidadesRaw&&(!Number.isInteger(unidades)||unidades<1))return window.showToast('Informe unidades por caixa como um número inteiro maior que zero.','warning');
+        if(!Number.isInteger(copias)||copias<1||copias>500)return window.showToast('A quantidade de etiquetas deve ser de 1 a 500 por produto.','warning');
+        Object.assign(itens[i],{validade,lote,gtin,unidadesCaixa:unidades,copias});
     }
-    const win=window.open('','_blank','width=700,height=1000');
-    if(!win) return window.showToast('Permita pop-ups para o Smart Estoque imprimir as etiquetas.', 'warning');
-    const H=escHtml;
-    const layoutSelect=document.getElementById('layout-etiquetas-impressao');
-    const porFolha=[1,2,4].includes(Number(layoutSelect?.value))?Number(layoutSelect.value):4;
-    const etiquetasHTML=[];
-    itens.forEach(item=>{
-        const codigoBarra=item.gtin||item.codigo;
-        const svg=gerarBarcodeEtiqueta(codigoBarra);
-        const p=item.validade.split('-'), validadeBR=p.length===3?p[2]+'/'+p[1]+'/'+p[0]:item.validade;
-        const quantidadeCaixa = item.unidadesCaixa ? String(item.unidadesCaixa) + ' unidades por caixa' : '—';
-        for(let copia=0;copia<item.copias;copia++){
-            etiquetasHTML.push('<section class="etiqueta"><header><div class="titulo">⚠ PRODUTO VENCIDO</div><div class="subtitulo">AGUARDANDO TROCA E RETIRADA DO FORNECEDOR</div></header><main>' +
-            '<div class="campo produto"><b>PRODUTO</b><span>'+H(item.descricao)+'</span></div>' +
-            '<div class="campo"><b>CÓDIGO / SKU</b><span>'+H(item.codigo||'—')+'</span></div>' +
-            '<div class="grid"><div class="campo"><b>LOTE</b><span>'+H(item.lote||'—')+'</span></div><div class="campo"><b>VALIDADE</b><span>'+H(validadeBR)+'</span></div></div>' +
-            '<div class="campo quantidade"><b>QUANTIDADE / UNIDADES POR CAIXA</b><span>'+H(quantidadeCaixa)+'</span></div>' +
-            '<div class="alerta"><span class="proibido">⊘</span><span>NÃO UTILIZAR<br>NÃO DISPONIBILIZAR PARA VENDA</span></div>' +
-            '<div class="barcode">'+svg+'<small>'+H(codigoBarra)+'</small></div></main><footer><span class="caminhao">🚚</span><span>PRODUTO SEGREGADO<br>AGUARDAR TROCA E RETIRADA DO FORNECEDOR</span></footer></section>');
-        }
+    const win=window.open('','_blank','width=900,height=900');if(!win)return window.showToast('Permita pop-ups para o Smart Estoque imprimir as etiquetas.','warning');
+    const H=escHtml,labels=[];
+    itens.forEach(item=>{const codigo=item.gtin||item.codigo,svg=gerarBarcodeEtiqueta(codigo),p=item.validade.split('-'),validadeBR=p.length===3?p[2]+'/'+p[1]+'/'+p[0]:item.validade,qtd=item.unidadesCaixa?String(item.unidadesCaixa)+' un./caixa':'—';
+        for(let c=0;c<item.copias;c++)labels.push('<article class="label expired"><div class="warning">PRODUTO VENCIDO <small>— NÃO UTILIZAR / NÃO VENDER</small></div><div class="name">'+H(item.descricao||'Produto')+'</div><div class="row"><span><b>SKU</b> '+H(item.codigo||'—')+'</span><span><b>LOTE</b> '+H(item.lote||'—')+'</span></div><div class="row"><span><b>VALIDADE</b> '+H(validadeBR)+'</span><span><b>QTD.</b> '+H(qtd)+'</span></div><div class="barcode">'+svg+'<small>'+H(codigo)+'</small></div></article>');
     });
-    let paginas='';
-    for(let i=0;i<etiquetasHTML.length;i+=porFolha){
-        paginas+='<div class="folha layout-'+porFolha+'">'+etiquetasHTML.slice(i,i+porFolha).join('')+'</div>';
-    }
-    win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Etiquetas - Produtos Vencidos</title><style>@page{size:297mm 210mm;margin:4mm}*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}html,body{margin:0;padding:0;background:#fff;font-family:Arial,sans-serif;color:#111;width:289mm} .folha{width:289mm;height:201mm;display:grid;grid-template-columns:142mm 142mm;grid-template-rows:99mm 99mm;gap:3mm;align-content:start;justify-content:center;page-break-after:always;break-after:page;overflow:hidden}.folha:last-child{page-break-after:auto;break-after:auto}.etiqueta{width:142mm;height:99mm;border:1mm solid #d71920;display:flex;flex-direction:column;overflow:hidden;break-inside:avoid;page-break-inside:avoid;background:#fff}header{background:#d71920;color:#fff;text-align:center;padding:3mm 4mm 2.5mm}.titulo{font-size:6mm;line-height:1.05;font-weight:900;letter-spacing:.15mm}.subtitulo{font-size:3.1mm;line-height:1.1;font-weight:800;margin-top:1.2mm}main{padding:2.5mm 4mm 1.5mm;flex:1;display:flex;flex-direction:column;min-height:0}.campo{margin-bottom:1.2mm;min-width:0}.campo b{display:block;font-size:2.5mm;line-height:1.05;margin-bottom:.5mm;color:#333}.campo span{display:block;min-height:4mm;border-bottom:.3mm solid #555;font-size:3.5mm;line-height:1.08;font-weight:800;padding:.4mm 0;word-break:break-word;overflow-wrap:anywhere}.produto span{font-size:4mm}.grid{display:grid;grid-template-columns:1fr 1fr;gap:5mm}.quantidade{margin-bottom:1mm}.alerta{display:flex;align-items:center;justify-content:center;gap:3mm;border:.6mm solid #d71920;color:#d71920;text-align:center;padding:1.2mm 2mm;font-size:3.1mm;line-height:1.1;font-weight:900;margin:.5mm 0 1mm}.proibido{font-size:8mm;line-height:1;font-weight:900;flex:none}.barcode{border-top:.3mm solid #d71920;padding-top:1mm;text-align:center;margin-top:auto}.barcode svg{width:72%;height:8mm;display:block;margin:0 auto}.barcode small{display:block;font-size:2.4mm;font-weight:800;letter-spacing:.3mm;margin-top:.2mm}footer{display:flex;align-items:center;justify-content:center;gap:3mm;background:#d71920;color:#fff;text-align:center;font-size:2.8mm;line-height:1.1;font-weight:900;padding:1.5mm 3mm}.caminhao{font-size:7mm;line-height:1}.folha.layout-2{grid-template-columns:142mm 142mm;grid-template-rows:99mm;align-content:center}.folha.layout-2 .etiqueta{width:142mm;height:99mm}.folha.layout-1{display:flex;align-items:center;justify-content:center}.folha.layout-1 .etiqueta{width:270mm;height:190mm;max-width:100%;border-width:1.5mm;flex-shrink:0}.folha.layout-1 header{padding:6mm 8mm 4mm;flex-shrink:0}.folha.layout-1 .titulo{font-size:9mm}.folha.layout-1 .subtitulo{font-size:4.2mm;margin-top:1.5mm}.folha.layout-1 main{padding:5mm 9mm 3mm;flex:1;min-height:0;overflow:hidden}.folha.layout-1 .campo{margin-bottom:2mm;flex-shrink:0}.folha.layout-1 .campo b{font-size:3.5mm}.folha.layout-1 .campo span{font-size:5mm;min-height:7mm}.folha.layout-1 .produto span{font-size:6mm}.folha.layout-1 .alerta{font-size:4.2mm;padding:2mm;flex-shrink:0}.folha.layout-1 .proibido{font-size:11mm}.folha.layout-1 .barcode{flex-shrink:0;margin-top:auto;padding-top:2mm}.folha.layout-1 .barcode svg{height:16mm;flex-shrink:0}.folha.layout-1 .barcode small{font-size:3.2mm;line-height:1.3;display:block;padding:.8mm 0 1mm;position:relative;z-index:1;background:#fff}.folha.layout-1 footer{font-size:3.5mm;padding:2.5mm;flex-shrink:0;min-height:12mm;position:relative;z-index:2}.folha.layout-1 .caminhao{font-size:9mm}@media print{html,body{width:289mm;height:auto;margin:0;padding:0}.folha{margin:0 auto;page-break-after:always;break-after:page}.folha:last-child{page-break-after:auto;break-after:auto}}</style></head><body>'+paginas+'<script>window.onload=function(){window.focus();window.print();setTimeout(function(){window.close()},800)}<\/script></body></html>');
-    win.document.close();
+    const pages=[];for(let i=0;i<labels.length;i+=21){const group=labels.slice(i,i+21);while(group.length<21)group.push('<article class="label blank"></article>');pages.push('<section class="sheet">'+group.join('')+'</section>');}
+    win.document.open();win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Etiquetas de produtos vencidos</title><style>*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}html,body{margin:0;padding:0;background:#fff;font-family:Arial,sans-serif;color:#111}.sheet{width:190.5mm;height:266.7mm;margin:15.15mm 9.75mm;display:grid;grid-template-columns:repeat(3,63.5mm);grid-template-rows:repeat(7,38.1mm);page-break-after:always;break-after:page}.sheet:last-child{page-break-after:auto;break-after:auto}.label{width:63.5mm;height:38.1mm;padding:1.7mm;overflow:hidden;border:.1mm solid #ddd;display:flex;flex-direction:column;gap:.6mm}.warning{background:#b42318;color:#fff;text-align:center;font-weight:900;font-size:7.5pt;line-height:1.05;padding:.8mm}.warning small{font-size:5pt}.name{font-size:7.5pt;line-height:1.05;font-weight:900;max-height:7mm;overflow:hidden;overflow-wrap:anywhere}.row{display:flex;justify-content:space-between;gap:1mm;font-size:5.5pt;line-height:1.1}.row span{min-width:0;overflow-wrap:anywhere}.row b{font-size:4.5pt}.barcode{margin-top:auto;text-align:center;min-height:7mm;overflow:hidden}.barcode svg{display:block;width:75%;height:5.5mm;margin:0 auto}.barcode small{display:block;font-size:4.5pt;line-height:1.05}.blank{border-color:transparent}@page{size:A4 portrait;margin:0}@media print{html,body{width:210mm;height:297mm;margin:0;padding:0}}</style></head><body>'+pages.join('')+'<script>window.onload=function(){window.focus();window.print()}<\\/script></body></html>');win.document.close();
 };
 let usuariosGestaoCache=[];
 function permissoesPadraoGestao(cargo){return {fichasTecnicas:{consultar:cargo==='CHEFE',editar:cargo==='CHEFE'}};}

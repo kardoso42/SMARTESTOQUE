@@ -1325,13 +1325,6 @@
             }, (error) => console.error('Erro no sincronismo do catálogo:', error));
         };
 
-        onAuthStateChanged(auth, async (u) => {
-            currentUser = u;
-            if (!u) {
-                operadorAtual = ''; cargoAtual = 'OPERADOR';
-                if (catalogoSnapshotUnsub) { catalogoSnapshotUnsub(); catalogoSnapshotUnsub = null; }
-        
-
         const valorCampoProdutoEtiqueta = (p, chaves) => {
             for (const k of chaves) {
                 const v=p?.[k];
@@ -1487,11 +1480,23 @@
         };
         window.addEventListener('DOMContentLoaded',()=>{if(new URLSearchParams(window.location.search).has('avaria')){const poll=()=>{if(currentUser)window.consultarAvariaPorId();else setTimeout(poll,800);};setTimeout(poll,800);}});
 
-        window.checkLogin();
+        onAuthStateChanged(auth, async (u) => {
+            currentUser = u;
+            if (!u) {
+                operadorAtual = '';
+                cargoAtual = 'OPERADOR';
+                if (catalogoSnapshotUnsub) {
+                    catalogoSnapshotUnsub();
+                    catalogoSnapshotUnsub = null;
+                }
+                window.checkLogin();
                 return;
             }
             const autorizado = await carregarPerfilFirebase(u);
-            if (!autorizado) return;
+            if (!autorizado) {
+                window.checkLogin();
+                return;
+            }
             iniciarSincronizacaoAutorizada();
             window.checkLogin();
         });
@@ -2810,12 +2815,19 @@ window.mudarAba = function(aba) {
                     const msgEl = document.getElementById('loading-msg');
                     
                     try {
-                        importandoCatalogo = true;
                         const colRef = collection(db, 'catalogo');
-                        // IDs continuam determinísticos pela posição da linha. Assim, a mesma planilha
-                        // atualiza os mesmos documentos e não cria duplicatas a cada importação.
-                        const idsNovos = new Set();
+                        // Confirmar antes de substituir a matriz para evitar exclusão acidental por planilha parcial.
                         const snapshotAntigo = await getDocs(colRef);
+                        const confirmacao = window.confirm(
+                            `A planilha contém ${temporarios.length} produtos e o catálogo atual contém ${snapshotAntigo.size}. ` +
+                            'Os produtos que não estiverem na planilha serão removidos da nuvem. Confirme apenas se esta é a matriz completa.'
+                        );
+                        if (!confirmacao) {
+                            document.getElementById('loading-overlay').style.display = 'none';
+                            e.target.value = '';
+                            return;
+                        }
+                        importandoCatalogo = true;
                         const mapaIdExistente = new Map();
                         snapshotAntigo.forEach(docSnap => {
                             const antigo = docSnap.data() || {};
@@ -2869,13 +2881,16 @@ window.mudarAba = function(aba) {
                         }
                         if (deleteCount > 0) await deleteBatch.commit();
 
-                        baseDados = temporarios;
+                        // Recarregar a lista confirmada na nuvem após os lotes e a limpeza.
+                        const snapshotFinal = await getDocs(colRef);
+                        baseDados = snapshotFinal.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }))
+                            .sort((a, b) => String(a.descricao || '').localeCompare(String(b.descricao || ''), 'pt-BR'));
+                        ultimoCatalogoSincronizado = Date.now();
                         salvarCatalogoLocal();
-                        
                         window.atualizarFiltrosDOM();
                         if (operadorAtual) window.render();
-
-                        window.showToast(`Upload 100% concluído! (${total} produtos)`, "success");
+                        if (cargoAtual === 'CHEFE') await atualizarCustosFichasAposImportacao();
+                        window.showToast(`Upload 100% concluído! (${baseDados.length} produtos sincronizados)`, "success");
                     } catch (e) {
                         window.showToast("Erro crítico de rede ao enviar para a nuvem.", "error");
                         console.error(e);

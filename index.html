@@ -732,9 +732,10 @@
             </div>
 
             <div class="card print-hide">
-                <div id="chefe-export-area" style="display:none; gap:12px; margin-bottom: 20px;">
+                <div id="chefe-export-area" style="display:none; gap:12px; margin-bottom: 20px; flex-wrap:wrap; align-items:center;">
                     <button class="btn-green" onclick="baixarExcel('tudo')">📥 EXPORTAR TUDO</button>
                     <button class="btn-outline" style="border-color: var(--red); color: var(--red);" onclick="baixarExcel('erros')">🚫 SÓ DIVERGÊNCIAS</button>
+                    <button id="chefe-limpar-btn" onclick="limparTudo()" style="color:var(--red); background:rgba(239, 68, 68, 0.1); font-size:11px; display:none;">🗑️ ZERAR TODA A AUDITORIA DA NUVEM</button>
                 </div>
                 <div style="overflow-x: auto;">
                     <table id="tabela">
@@ -742,7 +743,6 @@
                         <tbody id="tabela-body"></tbody>
                     </table>
                 </div>
-                <button id="chefe-limpar-btn" onclick="limparTudo()" style="margin-top:24px; color:var(--red); background:rgba(239, 68, 68, 0.1); font-size:11px; width:100%; display:none;">🗑️ ZERAR TODA A AUDITORIA DA NUVEM</button>
             </div>
         </div>
 

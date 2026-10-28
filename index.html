@@ -1263,10 +1263,10 @@
                 }
                 const perfil = perfilSnap.data() || {};
                 perfilAtual = perfil;
-                if (perfil.ativo === false) {
+                if (perfil.ativo !== true) {
                     await signOut(auth);
                     operadorAtual = ''; cargoAtual = 'OPERADOR';
-                    window.showToast('Seu acesso está inativo. Solicite ao CHEFE a reativação.', 'error');
+                    window.showToast('Seu perfil está inativo ou sem o campo ativo=true. Solicite ao CHEFE a correção do cadastro.', 'error');
                     return false;
                 }
                 const cargo = String(perfil.cargo || '').toUpperCase();

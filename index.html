@@ -1876,10 +1876,9 @@
                     const promises = [];
 
                     for (const i of pendentes) {
-                        const cleanCod = String(i.codigo || '').replace(/[^a-zA-Z0-9_-]/g, '');
-                        const cleanLoc = String(i.local || '').replace(/[^a-zA-Z0-9_-]/g, '');
-                        let docId = `${cleanCod}_${cleanLoc}`;
-                        if (docId === '_' || !docId) docId = `MANUAL_${Date.now()}_${Math.floor(Math.random()*10000)}`;
+                        // Mesmo critério de ID estável aplicado às contagens manuais.
+                        const chaveContagem = `${String(i.codigo || '').trim().toUpperCase()}|${String(i.local || '').trim().toUpperCase()}`;
+                        const docId = `CNT_${hashEstavel(chaveContagem)}`;
                         
                         const payload = {
                             uid: currentUser.uid,
@@ -2139,10 +2138,9 @@
                 if(modo === 'somar') novaQtd += Number(contagens[idxAnt].fisico || 0); 
             }
 
-            const codRaw = String(itemAtual.codigo || '').replace(/[^a-zA-Z0-9_-]/g, '');
-            const locRaw = String(itemAtual.local || '').replace(/[^a-zA-Z0-9_-]/g, '');
-            let docId = targetId || `${codRaw}_${locRaw}`;
-            if (docId === '_' || !docId) docId = `MANUAL_${Date.now()}_${Math.floor(Math.random()*10000)}`;
+            // IDs novos usam hash do par SKU+local original para evitar colisões por pontuação.
+            const chaveContagem = `${String(itemAtual.codigo || '').trim().toUpperCase()}|${String(itemAtual.local || '').trim().toUpperCase()}`;
+            const docId = targetId || `CNT_${hashEstavel(chaveContagem)}`;
             
             const colRef = collection(db, 'contagens');
 
@@ -2172,9 +2170,12 @@
             window.showToast("A transferir contagem...", "info");
 
             setDoc(doc(colRef, docId), payload).then(() => {
-                window.showToast("Gravação Confirmada", "success"); 
+                window.showToast("Gravação Confirmada", "success");
                 window.addLog(`${modo === 'somar' ? '+ ' : ''}${novaQtd}x ${itemAtual.descricao}`);
-            }).catch((e) => { window.showToast("Erro ao contatar os blocos de dados!", "error"); });
+            }).catch((e) => {
+                console.error("Falha ao gravar contagem na nuvem:", e);
+                window.showToast(`Falha ao gravar contagem (${e?.code || 'erro de rede'}). Confira a conexão e as permissões.`, "error");
+            });
         }
 
         window.render = function() {
